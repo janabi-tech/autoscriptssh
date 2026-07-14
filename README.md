@@ -1,7 +1,7 @@
 <p align="center">  
 <img src="https://user-images.githubusercontent.com/76937659/153705486-44e6c1b2-74fa-4d44-be1c-36c8fdb83331.gif"/>  
 <P>
-<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=blue&center=true&vCenter=true&lines=🚀𝗩𝗜𝗥𝗧𝗔𝗥𝗜𝗫-𝗧𝗘𝗖𝗛[𝗔𝘂𝘁𝗼𝗩𝗣𝗡𝗦𝗰𝗿𝗶𝗽𝘁]🚀"
+<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=blue&center=true&vCenter=true&lines=🚀𝗝𝗔𝗡𝗔𝗕𝗜-𝗧𝗘𝗖𝗛[𝗔𝘂𝘁𝗼𝗩𝗣𝗡𝗦𝗰𝗿𝗶𝗽𝘁]🚀"
 </p>
 <p align="center">  
 <img src="https://user-images.githubusercontent.com/76937659/153705486-44e6c1b2-74fa-4d44-be1c-36c8fdb83331.gif"/>  
@@ -41,14 +41,14 @@ apt update && apt upgrade -y &&
 ```
 
 ```bash
-bash <(curl -sS -L https://raw.githubusercontent.com/virtarix-tech/autoscriptssh/main/install.sh)
+bash <(curl -sS -L https://raw.githubusercontent.com/janabi-tech/autoscriptssh/main/install.sh)
 ```
 
 <p align="center">
 
 <h2 align="center">
 Auto Script Install XRAY/SSH Websocket Service
-Mod By Virtarix-Tech Dev
+Mod By Janabi-Tech Dev
 <p align="center">
 <img src="https://img.shields.io/badge/Release-v2.8.0-lime.svg">
 <img src="https://img.shields.io/badge/Systemd-Required-cyan.svg">
