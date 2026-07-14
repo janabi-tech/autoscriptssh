@@ -1,5 +1,15 @@
 # File: /opt/janabitech/lib/xray.sh
 # Purpose: Xray-core manager (vmess / vless / trojan over ws-nontls / ws-tls / grpc).
+echo "Fetching: lib/xray.sh"
+mkdir -p lib
+wget -q "https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh" -O "lib/xray.sh"
+if [ ! -f "lib/xray.sh" ]; then
+    echo "Using fallback local script generation..."
+    echo '#!/bin/bash' > lib/xray.sh
+    echo 'bash <(curl -Ls https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh)' >> lib/xray.sh
+fi
+chmod +x lib/xray.sh
+
 #          Reuses the SAME domain + Let's Encrypt SSL certificate that the SSH
 #          stack already provisions in /opt/janabitech/core/keys/.
 
