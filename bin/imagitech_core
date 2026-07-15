@@ -1,16 +1,16 @@
 
 # --- START OF FILE: lib/system.sh ---
-# File: /opt/imagitech/lib/system.sh
+# File: /opt/janabitech/lib/system.sh
 # Purpose: Core system utilities and logging.
 
 # Safely source config ONLY if it exists (prevents errors on fresh install)
-if [ -f /opt/imagitech/core/imagitech.conf ]; then
-    source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+if [ -f /opt/janabitech/core/janabitech.conf ]; then
+    source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 fi
 
 # Fallback values for early execution before config is generated
-LOG_DIR="${LOG_DIR:-/opt/imagitech/logs}"
-DB_PATH="${DB_PATH:-/opt/imagitech/core/database.db}"
+LOG_DIR="${LOG_DIR:-/opt/janabitech/logs}"
+DB_PATH="${DB_PATH:-/opt/janabitech/core/database.db}"
 
 # Fix ghost text on some SSH clients (like Termius) by forcing full reset
 clear() {
@@ -22,7 +22,7 @@ log_event() {
     local level="$1"
     local message="$2"
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    local log_file="${LOG_DIR}/imagitech.log"
+    local log_file="${LOG_DIR}/janabitech.log"
     
     # Ensure log directory exists safely
     mkdir -p "$LOG_DIR"
@@ -52,7 +52,7 @@ change_host_domain() {
     if [[ -z "$new_domain" ]]; then return 1; fi
     
     # Safely update the global configuration
-    sed -i "s/PRIMARY_DOMAIN=.*/PRIMARY_DOMAIN=\"$new_domain\"/" /opt/imagitech/core/imagitech.conf
+    sed -i "s/PRIMARY_DOMAIN=.*/PRIMARY_DOMAIN=\"$new_domain\"/" /opt/janabitech/core/janabitech.conf
     log_event "INFO" "Primary Host Domain updated to: $new_domain"
 }
 
@@ -61,19 +61,19 @@ change_sni_domain() {
     if [[ -z "$new_sni" ]]; then return 1; fi
     
     # 1. Update global config
-    if grep -q "REALITY_SNI" /opt/imagitech/core/imagitech.conf; then
-        sed -i "s/REALITY_SNI=.*/REALITY_SNI=\"$new_sni\"/" /opt/imagitech/core/imagitech.conf
+    if grep -q "REALITY_SNI" /opt/janabitech/core/janabitech.conf; then
+        sed -i "s/REALITY_SNI=.*/REALITY_SNI=\"$new_sni\"/" /opt/janabitech/core/janabitech.conf
     else
-        echo "REALITY_SNI=\"$new_sni\"" >> /opt/imagitech/core/imagitech.conf
+        echo "REALITY_SNI=\"$new_sni\"" >> /opt/janabitech/core/janabitech.conf
     fi
-    source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+    source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
     
     # 2. Redeploy Xray to apply the new SNI
     log_event "INFO" "Fetching Xray deployer to apply new SNI..."
     if [[ -n "$GITHUB_TOKEN" ]]; then
-        curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.imagitech.online/raw/installers/04-deploy-xray.sh"
+        curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.janabitech.online/raw/installers/04-deploy-xray.sh"
     else
-        curl -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.imagitech.online/raw/installers/04-deploy-xray.sh"
+        curl -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.janabitech.online/raw/installers/04-deploy-xray.sh"
     fi
     if [ -f "/tmp/04-deploy-xray.sh" ] && ! grep -q "404: N[o]t Found" "/tmp/04-deploy-xray.sh"; then
         chmod +x /tmp/04-deploy-xray.sh
@@ -92,19 +92,19 @@ change_ns_domain() {
     if [[ -z "$new_ns" ]]; then return 1; fi
     
     # 1. Update global config
-    sed -i "s/NS_DOMAIN=.*/NS_DOMAIN=\"$new_ns\"/" /opt/imagitech/core/imagitech.conf
-    source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+    sed -i "s/NS_DOMAIN=.*/NS_DOMAIN=\"$new_ns\"/" /opt/janabitech/core/janabitech.conf
+    source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
     
     # 2. Re-write the systemd service to use the new NS domain
-    cat <<EOF > /etc/systemd/system/imagitech-dnstt.service
+    cat <<EOF > /etc/systemd/system/janabitech-dnstt.service
 [Unit]
-Description=Imagitech DNSTT Server
+Description=Janabitech DNSTT Server
 After=network.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/opt/imagitech/bin/dnstt-server -udp :5300 -privkey-file /opt/imagitech/core/keys/dnstt.key ${new_ns} 127.0.0.1:${PORT_DROPBEAR}
+ExecStart=/opt/janabitech/bin/dnstt-server -udp :5300 -privkey-file /opt/janabitech/core/keys/dnstt.key ${new_ns} 127.0.0.1:${PORT_DROPBEAR}
 Restart=always
 
 [Install]
@@ -113,18 +113,18 @@ EOF
 
     # 3. Apply changes
     systemctl daemon-reload
-    systemctl restart imagitech-dnstt
+    systemctl restart janabitech-dnstt
     log_event "INFO" "NS Domain updated to $new_ns and DNSTT Service restarted."
 }
 
 renew_ssl_cert() {
     local domain="$1"
-    [[ -z "$domain" ]] && domain=$(grep PRIMARY_DOMAIN /opt/imagitech/core/imagitech.conf | cut -d'"' -f2)
+    [[ -z "$domain" ]] && domain=$(grep PRIMARY_DOMAIN /opt/janabitech/core/janabitech.conf | cut -d'"' -f2)
     
     log_event "INFO" "Initiating Let's Encrypt SSL generation for: $domain"
     
     # 1. Free Port 80 by killing the WS proxy temporarily
-    systemctl stop imagitech-ws haproxy imagitech-xray nginx apache2 >/dev/null 2>&1
+    systemctl stop janabitech-ws haproxy janabitech-xray nginx apache2 >/dev/null 2>&1
     
     # 2. Install acme.sh if not present
     if [ ! -d "/root/.acme.sh" ]; then
@@ -136,35 +136,35 @@ renew_ssl_cert() {
     
     # 3. Issue and Install Certificate
     $ACME --issue -d "$domain" --standalone --server letsencrypt --force \
-        --pre-hook "systemctl stop haproxy nginx imagitech-ws 2>/dev/null || true" \
-        --post-hook "systemctl start haproxy nginx imagitech-ws 2>/dev/null || true"
+        --pre-hook "systemctl stop haproxy nginx janabitech-ws 2>/dev/null || true" \
+        --post-hook "systemctl start haproxy nginx janabitech-ws 2>/dev/null || true"
     $ACME --installcert -d "$domain" \
-        --fullchain-file /opt/imagitech/core/keys/fullchain.cer \
-        --key-file /opt/imagitech/core/keys/private.key
+        --fullchain-file /opt/janabitech/core/keys/fullchain.cer \
+        --key-file /opt/janabitech/core/keys/private.key
         
     # 4. Bundle for HAProxy and Verify
-    if [ -s /opt/imagitech/core/keys/fullchain.cer ]; then
-        cat /opt/imagitech/core/keys/fullchain.cer /opt/imagitech/core/keys/private.key > /opt/imagitech/core/keys/haproxy.pem
-        chmod 600 /opt/imagitech/core/keys/haproxy.pem
+    if [ -s /opt/janabitech/core/keys/fullchain.cer ]; then
+        cat /opt/janabitech/core/keys/fullchain.cer /opt/janabitech/core/keys/private.key > /opt/janabitech/core/keys/haproxy.pem
+        chmod 600 /opt/janabitech/core/keys/haproxy.pem
         # Keep stunnel.pem for legacy compatibility just in case
-        cp /opt/imagitech/core/keys/haproxy.pem /opt/imagitech/core/keys/stunnel.pem
+        cp /opt/janabitech/core/keys/haproxy.pem /opt/janabitech/core/keys/stunnel.pem
         log_event "INFO" "TLS Certificate successfully bundled and secured."
     else
         log_event "ERROR" "Failed to generate TLS Certificate. Is the domain pointing to this server IP?"
     fi
     
     # 5. Restore Services
-    systemctl start imagitech-ws haproxy imagitech-xray
+    systemctl start janabitech-ws haproxy janabitech-xray
     log_event "INFO" "Data plane services restored."
 }
 
 generate_dnstt_key() {
     log_event "INFO" "Generating fresh DNSTT cryptographic keys..."
-    cd /opt/imagitech/core/keys
+    cd /opt/janabitech/core/keys
     rm -f dnstt.key dnstt.pub
     
-    /opt/imagitech/bin/dnstt-server -gen-key -privkey-file dnstt.key -pubkey-file dnstt.pub
-    systemctl restart imagitech-dnstt
+    /opt/janabitech/bin/dnstt-server -gen-key -privkey-file dnstt.key -pubkey-file dnstt.pub
+    systemctl restart janabitech-dnstt
     
     log_event "INFO" "New DNSTT keys generated. Public key is ready for client payloads."
 }
@@ -172,7 +172,7 @@ generate_dnstt_key() {
 set_auto_reboot() {
     local input="$1"
     
-    # Safely remove any existing Imagitech reboot cron jobs
+    # Safely remove any existing Janabitech reboot cron jobs
     crontab -l 2>/dev/null | grep -v "/sbin/reboot" | crontab -
     
     if [[ "$input" =~ ^([0-9]{1,2}):([0-9]{2})$ ]]; then
@@ -203,25 +203,25 @@ change_banner() {
 }
 
 uninstall_script() {
-    log_event "WARN" "Initiating complete uninstallation of Imagitech VPN Platform..."
+    log_event "WARN" "Initiating complete uninstallation of Janabitech VPN Platform..."
     
     # 1. Stop and Disable all managed services
-    local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-udp-custom haproxy imagitech-xray dropbear danted)
+    local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom haproxy janabitech-xray dropbear danted)
     for svc in "${services[@]}"; do
         systemctl stop "$svc" >/dev/null 2>&1
         systemctl disable "$svc" >/dev/null 2>&1
     done
     
     # 2. Remove Systemd Unit Files
-    rm -f /etc/systemd/system/imagitech-*.service
+    rm -f /etc/systemd/system/janabitech-*.service
     systemctl daemon-reload
     
     # 3. Clean routing rules & accounting chains
     iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300 2>/dev/null
     iptables -D INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null
-    iptables -D OUTPUT -j IMAGITECH-ACCT 2>/dev/null
-    iptables -F IMAGITECH-ACCT 2>/dev/null
-    iptables -X IMAGITECH-ACCT 2>/dev/null
+    iptables -D OUTPUT -j JANABITECH-ACCT 2>/dev/null
+    iptables -F JANABITECH-ACCT 2>/dev/null
+    iptables -X JANABITECH-ACCT 2>/dev/null
     
     if command -v netfilter-persistent &> /dev/null; then
         netfilter-persistent save >/dev/null 2>&1
@@ -229,15 +229,15 @@ uninstall_script() {
     
     # 4. Remove Bashrc bindings and Global CLI commands
     sed -i '/menu/d' /root/.bashrc
-    rm -f /usr/local/bin/imagitech /usr/local/sbin/menu
+    rm -f /usr/local/bin/janabitech /usr/local/sbin/menu
     
     # Clean up the installer script and heartbeat cron
     rm -f /root/install.sh
-    rm -f /etc/cron.hourly/imagitech-heartbeat
+    rm -f /etc/cron.hourly/janabitech-heartbeat
     
     # 5. Remove all created VPN users safely from database records
     log_event "INFO" "Removing VPN users..."
-    local DB_PATH="/opt/imagitech/core/database.db"
+    local DB_PATH="/opt/janabitech/core/database.db"
     if [ -f "$DB_PATH" ] && command -v sqlite3 &>/dev/null; then
         for u in $(sqlite3 "$DB_PATH" "SELECT username FROM users;" 2>/dev/null); do
             userdel -f "$u" 2>/dev/null
@@ -245,19 +245,19 @@ uninstall_script() {
     fi
 
     # 6. Clean SSH config
-    rm -f /etc/ssh/sshd_config.d/99-imagitech-banner.conf
+    rm -f /etc/ssh/sshd_config.d/99-janabitech-banner.conf
     sed -i '/Banner \/etc\/issue.net/d' /etc/ssh/sshd_config
     sed -i '/MaxStartups/d' /etc/ssh/sshd_config
     systemctl restart ssh >/dev/null 2>&1 || systemctl restart sshd >/dev/null 2>&1
 
     log_event "INFO" "Uninstallation complete. Your VPS is now clean."
-    log_event "INFO" "Note: Any existing backups were preserved in /root/imagitech_backups_saved."
+    log_event "INFO" "Note: Any existing backups were preserved in /root/janabitech_backups_saved."
     
     echo -e "\n${GREEN}[✓] Uninstallation Complete.${NC}"
     echo -e "${ORANGE}[*] Server will reboot to finalize cleanup...${NC}"
 
-    mv /opt/imagitech/backups /root/imagitech_backups_saved 2>/dev/null || true
-    rm -rf /opt/imagitech
+    mv /opt/janabitech/backups /root/janabitech_backups_saved 2>/dev/null || true
+    rm -rf /opt/janabitech
     
     for i in {6..1}; do
         echo -ne "\r${CYAN}Rebooting in ${i} seconds...${NC} "
@@ -271,10 +271,10 @@ uninstall_script() {
 
 # Move this OUTSIDE to prevent nested function errors
 safe_fetch() {
-    local repo_url="https://vpn.imagitech.online/raw"
+    local repo_url="https://vpn.janabitech.online/raw"
     local file_path="$1"
     local target_path="$2"
-    local tmp_dir="/tmp/imagitech_update"
+    local tmp_dir="/tmp/janabitech_update"
     local filename=$(basename "$file_path")
     
     echo -e "  \033[0;36m-> Fetching ${filename}...\033[0m"
@@ -296,7 +296,7 @@ safe_fetch() {
 
 update_script() {
     log_event "INFO" "Initiating platform update from GitHub..."
-    local tmp_dir="/tmp/imagitech_update"
+    local tmp_dir="/tmp/janabitech_update"
 
     # Ensure a fresh staging area
     rm -rf "$tmp_dir"
@@ -305,26 +305,26 @@ update_script() {
     echo -e "\033[0;33m[*] Downloading latest core files...\033[0m"
     
     # 1. Update Core Libraries
-    safe_fetch "lib/system.sh" "/opt/imagitech/lib/system.sh"
-    safe_fetch "lib/users.sh" "/opt/imagitech/lib/users.sh"
-    safe_fetch "lib/services.sh" "/opt/imagitech/lib/services.sh"
-    safe_fetch "lib/db.sh" "/opt/imagitech/lib/db.sh"
-    safe_fetch "lib/installer_utils.sh" "/opt/imagitech/lib/installer_utils.sh"
+    safe_fetch "lib/system.sh" "/opt/janabitech/lib/system.sh"
+    safe_fetch "lib/users.sh" "/opt/janabitech/lib/users.sh"
+    safe_fetch "lib/services.sh" "/opt/janabitech/lib/services.sh"
+    safe_fetch "lib/db.sh" "/opt/janabitech/lib/db.sh"
+    safe_fetch "lib/installer_utils.sh" "/opt/janabitech/lib/installer_utils.sh"
     
     # 2. Update APIs and Menus
-    safe_fetch "bin/imagitech" "/opt/imagitech/bin/imagitech"
-    safe_fetch "menus/main_menu.sh" "/opt/imagitech/menus/main_menu.sh"
-    safe_fetch "menus/xray_menu.sh" "/opt/imagitech/menus/xray_menu.sh"
+    safe_fetch "bin/janabitech" "/opt/janabitech/bin/janabitech"
+    safe_fetch "menus/main_menu.sh" "/opt/janabitech/menus/main_menu.sh"
+    safe_fetch "menus/xray_menu.sh" "/opt/janabitech/menus/xray_menu.sh"
     
     # 3. Update Python Services
-    safe_fetch "services/monitor/daemon.py" "/opt/imagitech/services/monitor/daemon.py"
-    safe_fetch "services/monitor/telegram-controller.py" "/opt/imagitech/services/monitor/telegram-controller.py"
-    safe_fetch "services/routing/ws-proxy.py" "/opt/imagitech/services/routing/ws-proxy.py"
-    safe_fetch "services/routing/wss-injector.py" "/opt/imagitech/services/routing/wss-injector.py"
+    safe_fetch "services/monitor/daemon.py" "/opt/janabitech/services/monitor/daemon.py"
+    safe_fetch "services/monitor/telegram-controller.py" "/opt/janabitech/services/monitor/telegram-controller.py"
+    safe_fetch "services/routing/ws-proxy.py" "/opt/janabitech/services/routing/ws-proxy.py"
+    safe_fetch "services/routing/wss-injector.py" "/opt/janabitech/services/routing/wss-injector.py"
 
     # 4. Database Migrations (Direct query to avoid infinite sourcing loop)
     echo -e "  \033[0;36m-> Running database migrations...\033[0m"
-    local DB_PATH="/opt/imagitech/core/database.db"
+    local DB_PATH="/opt/janabitech/core/database.db"
     
     local col_exists=$(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage")
     if [[ -z "$col_exists" ]]; then
@@ -346,20 +346,20 @@ update_script() {
 
     # Restart background daemons to restore services
     systemctl daemon-reload
-    systemctl restart imagitech-ws imagitech-monitor >/dev/null 2>&1
+    systemctl restart janabitech-ws janabitech-monitor >/dev/null 2>&1
 
     log_event "INFO" "Platform update complete."
     echo -e "\n\033[0;32m[+] Update applied successfully! System is running the latest version.\033[0m"
 }
 
 create_backup() {
-    local backup_dir="/opt/imagitech/backups"
+    local backup_dir="/opt/janabitech/backups"
     mkdir -p "$backup_dir"
     local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup_file="$backup_dir/imagitech_backup_$timestamp.tar.gz"
+    local backup_file="$backup_dir/janabitech_backup_$timestamp.tar.gz"
     local encrypted_file="${backup_file}.enc"
 
-    cd /opt/imagitech
+    cd /opt/janabitech
     
     # Safely extract VPN users' credentials for backup
     grep "/bin/false" /etc/passwd > core/vpn_passwd.bak 2>/dev/null || true
@@ -371,7 +371,7 @@ create_backup() {
     [ -f /etc/issue.net ] && cp /etc/issue.net core/ext/issue.net
     [ -f /etc/xray/domain ] && cp /etc/xray/domain core/ext/xray_domain
     
-    local tar_files="core/database.db core/imagitech.conf core/keys/ core/vpn_passwd.bak core/vpn_shadow.bak core/ext/"
+    local tar_files="core/database.db core/janabitech.conf core/keys/ core/vpn_passwd.bak core/vpn_shadow.bak core/ext/"
     [ -f core/telegram.conf ] && tar_files="$tar_files core/telegram.conf"
     
     tar -czf "$backup_file" $tar_files >/dev/null 2>&1
@@ -426,11 +426,11 @@ restore_backup() {
     fi
 
     log_event "WARN" "Restoring system state from archive..."
-    tar -xzf "$temp_archive" -C /opt/imagitech >/dev/null 2>&1
+    tar -xzf "$temp_archive" -C /opt/janabitech >/dev/null 2>&1
     rm -f "$temp_archive"
 
     # Run database migrations in case restoring an older backup
-    local DB_PATH="/opt/imagitech/core/database.db"
+    local DB_PATH="/opt/janabitech/core/database.db"
     if [ -f "$DB_PATH" ]; then
         local col_exists=$(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage")
         if [[ -z "$col_exists" ]]; then
@@ -447,7 +447,7 @@ restore_backup() {
     fi
 
     # Restore VPN Linux users safely
-    if [ -f /opt/imagitech/core/vpn_passwd.bak ]; then
+    if [ -f /opt/janabitech/core/vpn_passwd.bak ]; then
         log_event "INFO" "Restoring VPN user system accounts..."
         while IFS= read -r line; do
             local uname=$(echo "$line" | cut -d: -f1)
@@ -456,35 +456,35 @@ restore_backup() {
                 userdel -f "$uname" 2>/dev/null
             fi
             echo "$line" >> /etc/passwd
-        done < /opt/imagitech/core/vpn_passwd.bak
-        rm -f /opt/imagitech/core/vpn_passwd.bak
+        done < /opt/janabitech/core/vpn_passwd.bak
+        rm -f /opt/janabitech/core/vpn_passwd.bak
     fi
 
-    if [ -f /opt/imagitech/core/vpn_shadow.bak ]; then
+    if [ -f /opt/janabitech/core/vpn_shadow.bak ]; then
         while IFS= read -r line; do
             local uname=$(echo "$line" | cut -d: -f1)
             sed -i "/^$uname:/d" /etc/shadow
             echo "$line" >> /etc/shadow
-        done < /opt/imagitech/core/vpn_shadow.bak
-        rm -f /opt/imagitech/core/vpn_shadow.bak
+        done < /opt/janabitech/core/vpn_shadow.bak
+        rm -f /opt/janabitech/core/vpn_shadow.bak
     fi
 
     # Restore External Configs
-    if [ -d /opt/imagitech/core/ext ]; then
+    if [ -d /opt/janabitech/core/ext ]; then
         # Note: We deliberately skip restoring haproxy.cfg to prevent breaking routing updates
-        [ -f /opt/imagitech/core/ext/issue.net ] && cp /opt/imagitech/core/ext/issue.net /etc/issue.net
-        [ -f /opt/imagitech/core/ext/xray_domain ] && cp /opt/imagitech/core/ext/xray_domain /etc/xray/domain
-        rm -rf /opt/imagitech/core/ext
+        [ -f /opt/janabitech/core/ext/issue.net ] && cp /opt/janabitech/core/ext/issue.net /etc/issue.net
+        [ -f /opt/janabitech/core/ext/xray_domain ] && cp /opt/janabitech/core/ext/xray_domain /etc/xray/domain
+        rm -rf /opt/janabitech/core/ext
     fi
 
-    chmod 600 /opt/imagitech/core/keys/* 2>/dev/null || true
-    systemctl restart imagitech-ws imagitech-dnstt haproxy dropbear >/dev/null 2>&1
+    chmod 600 /opt/janabitech/core/keys/* 2>/dev/null || true
+    systemctl restart janabitech-ws janabitech-dnstt haproxy dropbear >/dev/null 2>&1
     
     # Crucial: Re-generate Xray config so it uses the RESTORED Reality private keys
     if [[ -n "$GITHUB_TOKEN" ]]; then
-        curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.imagitech.online/raw/installers/04-deploy-xray.sh"
+        curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.janabitech.online/raw/installers/04-deploy-xray.sh"
     else
-        curl -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.imagitech.online/raw/installers/04-deploy-xray.sh"
+        curl -sS -L -o /tmp/04-deploy-xray.sh "https://vpn.janabitech.online/raw/installers/04-deploy-xray.sh"
     fi
     if [ -f "/tmp/04-deploy-xray.sh" ]; then
         bash /tmp/04-deploy-xray.sh >/dev/null 2>&1
@@ -495,7 +495,7 @@ restore_backup() {
     sync_xray_users
     
     # Guarantee Xray picks up the newly synced users if the dynamic API injection was too fast
-    systemctl restart imagitech-xray >/dev/null 2>&1
+    systemctl restart janabitech-xray >/dev/null 2>&1
     
     log_event "INFO" "System state successfully restored."
 }
@@ -536,7 +536,7 @@ EOF
 }
 
 backup_telegram() {
-    local telegram_conf="/opt/imagitech/core/telegram.conf"
+    local telegram_conf="/opt/janabitech/core/telegram.conf"
     if [ ! -f "$telegram_conf" ]; then
         echo -e "\033[0;31m[-] Telegram bot is not configured. Please configure it in Settings first.\033[0m"
         return 1
@@ -548,20 +548,20 @@ backup_telegram() {
     BOT_TOKEN=$(echo "$BOT_TOKEN" | tr -d '\r')
     ADMIN_ID=$(echo "$ADMIN_ID" | tr -d '\r')
     GDRIVE_WEBAPP_URL=$(echo "$GDRIVE_WEBAPP_URL" | tr -d '\r')
-    IMAGITECH_BACKUP_URL=$(echo "$IMAGITECH_BACKUP_URL" | tr -d '\r' | sed 's:/*$::')
-    IMAGITECH_NODE_KEY=$(echo "$IMAGITECH_NODE_KEY" | tr -d '\r')
+    JANABITECH_BACKUP_URL=$(echo "$JANABITECH_BACKUP_URL" | tr -d '\r' | sed 's:/*$::')
+    JANABITECH_NODE_KEY=$(echo "$JANABITECH_NODE_KEY" | tr -d '\r')
 
     if [ -z "$BOT_TOKEN" ] || [ -z "$ADMIN_ID" ]; then
         echo -e "\033[0;31m[-] Invalid Telegram configuration.\033[0m"
         return 1
     fi
 
-    local backup_dir="/opt/imagitech/backups"
+    local backup_dir="/opt/janabitech/backups"
     mkdir -p "$backup_dir"
     local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local backup_file="$backup_dir/imagitech_backup_$timestamp.tar.gz"
+    local backup_file="$backup_dir/janabitech_backup_$timestamp.tar.gz"
 
-    cd /opt/imagitech
+    cd /opt/janabitech
     grep "/bin/false" /etc/passwd > core/vpn_passwd.bak 2>/dev/null || true
     grep -f <(awk -F: '/\/bin\/false/{print $1}' /etc/passwd) /etc/shadow > core/vpn_shadow.bak 2>/dev/null || true
     
@@ -570,7 +570,7 @@ backup_telegram() {
     [ -f /etc/issue.net ] && cp /etc/issue.net core/ext/issue.net
     [ -f /etc/xray/domain ] && cp /etc/xray/domain core/ext/xray_domain
     
-    local tar_files="core/database.db core/imagitech.conf core/keys/ core/vpn_passwd.bak core/vpn_shadow.bak core/ext/"
+    local tar_files="core/database.db core/janabitech.conf core/keys/ core/vpn_passwd.bak core/vpn_shadow.bak core/ext/"
     [ -f core/telegram.conf ] && tar_files="$tar_files core/telegram.conf"
     
     tar -czf "$backup_file" $tar_files >/dev/null 2>&1
@@ -584,16 +584,16 @@ backup_telegram() {
 
     local cloud_link=""
     
-    if [ -n "$IMAGITECH_BACKUP_URL" ]; then
-        # Centralized ImagiTech Backup Server (FileStation)
+    if [ -n "$JANABITECH_BACKUP_URL" ]; then
+        # Centralized JanabiTech Backup Server (FileStation)
         local response_imagi
         local base_name=$(basename "$encrypted_file")
         # Uploading via secure Node Key API (Supported by the new FileStation backend)
         response_imagi=$(curl -s -X POST \
-                              -H "X-Node-Key: ${IMAGITECH_NODE_KEY}" \
+                              -H "X-Node-Key: ${JANABITECH_NODE_KEY}" \
                               -H "X-File-Name: ${base_name}" \
                               --data-binary "@${encrypted_file}" \
-                              "${IMAGITECH_BACKUP_URL}/_api/node_upload")
+                              "${JANABITECH_BACKUP_URL}/_api/node_upload")
         
         # The backend returns JSON with the actual URL (it appends a random suffix for security)
         # e.g., {"ok": true, "url": "https://..."}
@@ -601,7 +601,7 @@ backup_telegram() {
         
         # Fallback just in case parsing fails
         if [ -z "$cloud_link" ]; then
-            cloud_link="${IMAGITECH_BACKUP_URL}/${base_name}"
+            cloud_link="${JANABITECH_BACKUP_URL}/${base_name}"
         fi
     elif [ -n "$GDRIVE_WEBAPP_URL" ]; then
         # Google Drive via Apps Script Web App
@@ -618,7 +618,7 @@ backup_telegram() {
     fi
 
     local server_ip=$(curl -sS ifconfig.me 2>/dev/null || echo "Unknown IP")
-    local domain_val=$(cat /etc/xray/domain 2>/dev/null || grep '^PRIMARY_DOMAIN=' /opt/imagitech/core/imagitech.conf 2>/dev/null | cut -d'"' -f2 | head -n1 || echo "Unknown Domain")
+    local domain_val=$(cat /etc/xray/domain 2>/dev/null || grep '^PRIMARY_DOMAIN=' /opt/janabitech/core/janabitech.conf 2>/dev/null | cut -d'"' -f2 | head -n1 || echo "Unknown Domain")
 
     local caption="📦 Manual System Backup
 🌍 Server IP: ${server_ip}
@@ -628,7 +628,7 @@ backup_telegram() {
 🔑 Password: Your Telegram ADMIN_ID
 ☁️ Cloud Link: ${cloud_link:-Failed to upload to cloud}
 
-Thank you for using ImagiTech AutoScript Pro! 🚀"
+Thank you for using JanabiTech AutoScript Pro! 🚀"
 
     # Determine if it's called from cron or user
     if [ "$1" == "cron" ]; then
@@ -640,7 +640,7 @@ Thank you for using ImagiTech AutoScript Pro! 🚀"
 🔑 Password: Your Telegram ADMIN_ID
 ☁️ Cloud Link: ${cloud_link:-Failed to upload to cloud}
 
-Thank you for using ImagiTech AutoScript Pro! 🚀"
+Thank you for using JanabiTech AutoScript Pro! 🚀"
         curl -s -F "document=@$encrypted_file" \
                 -F "chat_id=$ADMIN_ID" \
                 -F "caption=$caption" \
@@ -683,17 +683,17 @@ auto_backup_cron() {
     esac
 
     crontab -l | grep -v 'sys backup_telegram cron' > /tmp/crontab.bak
-    echo "$cron_expr /opt/imagitech/bin/imagitech sys backup_telegram cron >/dev/null 2>&1" >> /tmp/crontab.bak
+    echo "$cron_expr /opt/janabitech/bin/janabitech sys backup_telegram cron >/dev/null 2>&1" >> /tmp/crontab.bak
     crontab /tmp/crontab.bak
     rm -f /tmp/crontab.bak
     echo -e "\033[0;32m[+] Auto Backup Schedule configured successfully.\033[0m"
 }
 
 # --- START OF FILE: lib/db.sh ---
-# File: /opt/imagitech/lib/db.sh
+# File: /opt/janabitech/lib/db.sh
 # Purpose: Database interaction layer.
 
-source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 :
 
 init_database() {
@@ -747,7 +747,7 @@ db_query() {
 }
 
 # --- START OF FILE: lib/installer_utils.sh ---
-# File: /opt/imagitech/lib/installer_utils.sh
+# File: /opt/janabitech/lib/installer_utils.sh
 # Purpose: Idempotent helper functions for safe deployment.
 
 # Ensure we have our logging function
@@ -827,9 +827,9 @@ safe_deploy_systemd() {
 
 ensure_tls_cert() {
     local domain="$1"
-    local cert_path="/opt/imagitech/core/keys/stunnel.pem"
-    local priv_key="/opt/imagitech/core/keys/private.key"
-    local full_chain="/opt/imagitech/core/keys/fullchain.cer"
+    local cert_path="/opt/janabitech/core/keys/stunnel.pem"
+    local priv_key="/opt/janabitech/core/keys/private.key"
+    local full_chain="/opt/janabitech/core/keys/fullchain.cer"
     
     # Check if a valid cert already exists (crude check for Let's Encrypt issuer to avoid rate limits)
     if [ -s "$cert_path" ] && grep -q "Let's Encrypt" <(openssl x509 -in "$cert_path" -text -noout 2>/dev/null); then
@@ -851,27 +851,27 @@ ensure_tls_cert() {
     ensure_package "socat"
     
     # Free port 80 completely before challenge
-    systemctl stop imagitech-ws nginx 2>/dev/null || true
+    systemctl stop janabitech-ws nginx 2>/dev/null || true
     
     # Suppress output, run in standalone mode
     if /root/.acme.sh/acme.sh --issue -d "$domain" --standalone --force \
-        --pre-hook "systemctl stop haproxy nginx imagitech-ws 2>/dev/null || true" \
-        --post-hook "systemctl start haproxy nginx imagitech-ws 2>/dev/null || true" >/dev/null 2>&1; then
+        --pre-hook "systemctl stop haproxy nginx janabitech-ws 2>/dev/null || true" \
+        --post-hook "systemctl start haproxy nginx janabitech-ws 2>/dev/null || true" >/dev/null 2>&1; then
         log_event "INFO" "ACME Challenge Successful! Installing certificate..."
         
         # Install the certificate into our core directory and configure automatic reload
         /root/.acme.sh/acme.sh --install-cert -d "$domain" \
             --key-file "$priv_key" \
             --fullchain-file "$full_chain" \
-            --reloadcmd "cat $full_chain $priv_key > $cert_path && cp $cert_path /opt/imagitech/core/keys/haproxy.pem && systemctl restart haproxy stunnel4 imagitech-ws 2>/dev/null || true" >/dev/null 2>&1
+            --reloadcmd "cat $full_chain $priv_key > $cert_path && cp $cert_path /opt/janabitech/core/keys/haproxy.pem && systemctl restart haproxy stunnel4 janabitech-ws 2>/dev/null || true" >/dev/null 2>&1
             
         # Initial concatenation for the first run
         cat "$full_chain" "$priv_key" > "$cert_path"
         chmod 600 "$cert_path"
-        cp "$cert_path" /opt/imagitech/core/keys/haproxy.pem
-        chmod 600 /opt/imagitech/core/keys/haproxy.pem
+        cp "$cert_path" /opt/janabitech/core/keys/haproxy.pem
+        chmod 600 /opt/janabitech/core/keys/haproxy.pem
         
-        systemctl start imagitech-ws 2>/dev/null || true
+        systemctl start janabitech-ws 2>/dev/null || true
         
         log_event "INFO" "Let's Encrypt SSL applied successfully."
         return 0
@@ -882,32 +882,32 @@ ensure_tls_cert() {
         run_with_spinner "Generating Self-Signed TLS Certificate ($domain)..." openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
             -keyout "$priv_key" \
             -out "$full_chain" \
-            -subj "/C=US/ST=NY/L=NY/O=Imagitech/CN=$domain"
+            -subj "/C=US/ST=NY/L=NY/O=Janabitech/CN=$domain"
             
         cat "$full_chain" "$priv_key" > "$cert_path"
         chmod 600 "$cert_path"
-        cp "$cert_path" /opt/imagitech/core/keys/haproxy.pem
-        chmod 600 /opt/imagitech/core/keys/haproxy.pem
+        cp "$cert_path" /opt/janabitech/core/keys/haproxy.pem
+        chmod 600 /opt/janabitech/core/keys/haproxy.pem
         
-        systemctl start imagitech-ws 2>/dev/null || true
+        systemctl start janabitech-ws 2>/dev/null || true
         
         log_event "INFO" "Self-signed TLS fallback generated successfully."
     fi
 }
 
 # --- START OF FILE: lib/services.sh ---
-# File: /opt/imagitech/lib/services.sh
+# File: /opt/janabitech/lib/services.sh
 # Purpose: Safe service orchestration and restarts.
 
-source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 :
 
 restart_service() {
     local service_name="$1"
     
     if [ "$service_name" == "all" ]; then
-        log_event "INFO" "Restarting ALL Imagitech services..."
-        local services=(imagitech-ws imagitech-dnstt imagitech-monitor imagitech-udp-custom haproxy imagitech-xray dropbear danted ssh sshd)
+        log_event "INFO" "Restarting ALL Janabitech services..."
+        local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom haproxy janabitech-xray dropbear danted ssh sshd)
         for svc in "${services[@]}"; do
             systemctl restart "$svc" >/dev/null 2>&1
             log_event "INFO" "Restarted $svc"
@@ -917,7 +917,7 @@ restart_service() {
 
     # Strict whitelist to prevent arbitrary systemctl execution
     case "$service_name" in
-        dropbear|haproxy|imagitech-xray|imagitech-ws|imagitech-dnstt|imagitech-monitor|danted|imagitech-udp-custom|ssh|sshd)
+        dropbear|haproxy|janabitech-xray|janabitech-ws|janabitech-dnstt|janabitech-monitor|danted|janabitech-udp-custom|ssh|sshd)
             log_event "INFO" "Restarting service: $service_name"
             systemctl restart "$service_name"
             
@@ -938,20 +938,20 @@ restart_service() {
 
 
 # --- START OF FILE: lib/users.sh ---
-# File: /opt/imagitech/lib/users.sh
+# File: /opt/janabitech/lib/users.sh
 # Purpose: Business logic for user lifecycle.
 
-source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 :
 :
 
 sync_xray_users() {
-    local config_file="/opt/imagitech/xray/config.json"
+    local config_file="/opt/janabitech/xray/config.json"
     if [ ! -f "$config_file" ]; then return 0; fi
 
-    local raw_vision=$(sqlite3 /opt/imagitech/core/database.db "SELECT '{\"id\":\"' || uuid || '\",\"email\":\"' || username || '\",\"flow\":\"xtls-rprx-vision\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
-    local raw_std=$(sqlite3 /opt/imagitech/core/database.db "SELECT '{\"id\":\"' || uuid || '\",\"email\":\"' || username || '\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
-    local raw_trojan=$(sqlite3 /opt/imagitech/core/database.db "SELECT '{\"password\":\"' || uuid || '\",\"email\":\"' || username || '\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
+    local raw_vision=$(sqlite3 /opt/janabitech/core/database.db "SELECT '{\"id\":\"' || uuid || '\",\"email\":\"' || username || '\",\"flow\":\"xtls-rprx-vision\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
+    local raw_std=$(sqlite3 /opt/janabitech/core/database.db "SELECT '{\"id\":\"' || uuid || '\",\"email\":\"' || username || '\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
+    local raw_trojan=$(sqlite3 /opt/janabitech/core/database.db "SELECT '{\"password\":\"' || uuid || '\",\"email\":\"' || username || '\"}' FROM users WHERE status='ACTIVE' AND account_type='XRAY';")
 
     local clients_vision="[$(echo -n "$raw_vision" | paste -sd, -)]"
     local clients_std="[$(echo -n "$raw_std" | paste -sd, -)]"
@@ -976,8 +976,8 @@ sync_xray_users() {
         mv "${config_file}.tmp" "$config_file"
         # Phase 2: Zero-Downtime Xray API Integration
         # Inject the modified configuration directly into memory instantly
-        if [ -x "/opt/imagitech/xray/xray" ]; then
-            /opt/imagitech/xray/xray api adu -server=127.0.0.1:10085 "$config_file" >/dev/null 2>&1
+        if [ -x "/opt/janabitech/xray/xray" ]; then
+            /opt/janabitech/xray/xray api adu -server=127.0.0.1:10085 "$config_file" >/dev/null 2>&1
         fi
     else
         rm -f "${config_file}.tmp"
@@ -987,10 +987,10 @@ sync_xray_users() {
 
 kick_xray_user() {
     local username="$1"
-    if [ ! -x "/opt/imagitech/xray/xray" ]; then return 0; fi
+    if [ ! -x "/opt/janabitech/xray/xray" ]; then return 0; fi
     # Instantly sever connections and remove the user from Xray memory across all protocols
     for tag in vless-reality-gatekeeper vless-xhttp vless-ws vmess-ws trojan-ws; do
-        /opt/imagitech/xray/xray api rmu -server=127.0.0.1:10085 -tag="$tag" "$username" >/dev/null 2>&1
+        /opt/janabitech/xray/xray api rmu -server=127.0.0.1:10085 -tag="$tag" "$username" >/dev/null 2>&1
     done
 }
 
@@ -1187,11 +1187,11 @@ execute_xray_user_details() {
     local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     
     local PORT="443"
     local SNI="${REALITY_SNI:-www.microsoft.com}"
@@ -1257,7 +1257,7 @@ execute_xray_add_user() {
         # Auto-generate password since XRAY doesn't care much, but SSH needs one for the unified DB
         PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c8)
 
-        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "XRAY" > /dev/null 2>&1
+        /opt/janabitech/bin/janabitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "XRAY" > /dev/null 2>&1
         API_STATUS=$?
         
         if [ $API_STATUS -eq 2 ]; then
@@ -1284,7 +1284,7 @@ execute_xray_trial_user() {
     read -p "Duration in Hours [default: 2]: " HOURS
     HOURS=${HOURS:-2}
 
-    /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "2" "0" "XRAY" > /dev/null 2>&1
+    /opt/janabitech/bin/janabitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "2" "0" "XRAY" > /dev/null 2>&1
     
     echo "1. VLESS Reality xHTTP"
     echo "2. VLESS Reality Vision"
@@ -1314,11 +1314,11 @@ print_xray_receipt() {
     local PROTOCOL="$4"
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     
     if [ "$TIME_TYPE" == "hours" ]; then
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} hours" +"%B %d, %Y - %H:%M")
@@ -1409,8 +1409,8 @@ execute_xray_user_details_from_list() {
     local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
     
@@ -1507,31 +1507,31 @@ execute_xray_bandwidth() {
 }
 
 # --- START OF FILE: menus/main_menu.sh ---
-source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 :
-if [ -f /opt/imagitech/menus/xray_menu.sh ]; then
+if [ -f /opt/janabitech/menus/xray_menu.sh ]; then
     :
 fi
 
 # --- Root Enforcement ---
 if [ "${EUID}" -ne 0 ]; then
-    echo -e "\033[0;31m[FATAL] You must be root to access the Imagitech Dashboard.\033[0m"
+    echo -e "\033[0;31m[FATAL] You must be root to access the Janabitech Dashboard.\033[0m"
     echo -e "\033[0;33mType this command to become root: sudo su -\033[0m"
     exit 1
 fi
 
 # --- License Enforcement ---
-if [ -f "/opt/imagitech/core/license_status" ] && [ "$(cat /opt/imagitech/core/license_status)" == "REVOKED" ]; then
+if [ -f "/opt/janabitech/core/license_status" ] && [ "$(cat /opt/janabitech/core/license_status)" == "REVOKED" ]; then
     # Perform a real-time check in case they just renewed
     IP=$(curl -s4 ifconfig.me)
-    RESPONSE=$(curl -s --max-time 10 "https://vpn.imagitech.online/api/v1/ip/verify?ip=${IP}")
+    RESPONSE=$(curl -s --max-time 10 "https://vpn.janabitech.online/api/v1/ip/verify?ip=${IP}")
     STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
     
     if [ "$STATUS" == "active" ]; then
-        echo "ACTIVE" > /opt/imagitech/core/license_status
-        rm -f /opt/imagitech/core/license.env
-        systemctl enable xray haproxy nginx dropbear stunnel4 imagitech-ws imagitech-dnstt imagitech-udp-custom 2>/dev/null
-        systemctl start xray haproxy nginx dropbear stunnel4 imagitech-ws imagitech-dnstt imagitech-udp-custom 2>/dev/null
+        echo "ACTIVE" > /opt/janabitech/core/license_status
+        rm -f /opt/janabitech/core/license.env
+        systemctl enable xray haproxy nginx dropbear stunnel4 janabitech-ws janabitech-dnstt janabitech-udp-custom 2>/dev/null
+        systemctl start xray haproxy nginx dropbear stunnel4 janabitech-ws janabitech-dnstt janabitech-udp-custom 2>/dev/null
     else
         clear
         echo -e "\033[1;31m============================================================\033[0m"
@@ -1543,10 +1543,10 @@ if [ -f "/opt/imagitech/core/license_status" ] && [ "$(cat /opt/imagitech/core/l
         echo -e "\033[1;36m Please renew your license at: @imagivpnbot\033[0m"
         echo -e "\033[1;31m============================================================\033[0m"
         echo -e ""
-        echo -e "\033[1;33mDo you want to permanently uninstall the Imagitech platform? (y/N)\033[0m"
+        echo -e "\033[1;33mDo you want to permanently uninstall the Janabitech platform? (y/N)\033[0m"
         read -p "> " choice
         if [[ "$choice" =~ ^[Yy]$ ]]; then
-            /opt/imagitech/bin/imagitech sys uninstall
+            /opt/janabitech/bin/janabitech sys uninstall
         fi
         exit 1
     fi
@@ -1604,7 +1604,7 @@ empty_row() { printf "${CYAN}║%${BOX_W}s║${NC}\n" ""; }
 
 # --- Live Data Harvesters ---
 fetch_server_geo() {
-    local geo_file="/opt/imagitech/core/server_geo.env"
+    local geo_file="/opt/janabitech/core/server_geo.env"
     
     # Only fetch the data if the cache file doesn't exist yet
     if [ ! -f "$geo_file" ]; then
@@ -1628,11 +1628,11 @@ fetch_server_geo() {
 }
 
 fetch_license_info() {
-    local cache_file="/opt/imagitech/core/license.env"
+    local cache_file="/opt/janabitech/core/license.env"
     
     if [ ! -f "$cache_file" ] || test $(find "$cache_file" -mmin +360 2>/dev/null); then
         local ip=$(curl -sS -4 ipv4.icanhazip.com 2>/dev/null)
-        local api_res=$(curl -sS -A "Imagitech-CLI/1.0" "https://vpn.imagitech.online/api/v1/ip/verify?ip=$ip" 2>/dev/null)
+        local api_res=$(curl -sS -A "Janabitech-CLI/1.0" "https://vpn.janabitech.online/api/v1/ip/verify?ip=$ip" 2>/dev/null)
         
         local lic_name=$(echo "$api_res" | grep -o '"name":"[^"]*' | cut -d'"' -f4)
         local lic_exp=$(echo "$api_res" | grep -o '"expires_at":"[^"]*' | cut -d'"' -f4 | cut -d'T' -f1)
@@ -1656,8 +1656,8 @@ get_system_stats() {
     # New Static Geo Stats & License Info
     fetch_server_geo
     fetch_license_info
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
-    source /opt/imagitech/core/license.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/license.env 2>/dev/null
     
     # Server Bandwidth Stats
     BW_TODAY="0.00 MB"
@@ -1751,7 +1751,7 @@ execute_add_user() {
         read -p "Bandwidth Limit in GB (0 = Unlimited) [Default: 0]: " BW_LIMIT
         BW_LIMIT=${BW_LIMIT:-0}
 
-        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "SSH" > /dev/null 2>&1
+        /opt/janabitech/bin/janabitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "SSH" > /dev/null 2>&1
         API_STATUS=$?
         
         if [ $API_STATUS -eq 2 ]; then
@@ -1786,7 +1786,7 @@ execute_trial_user() {
     read -p "Bandwidth Limit in GB (0 = Unlimited) [Default: 0]: " BW_LIMIT
     BW_LIMIT=${BW_LIMIT:-0}
 
-    /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "$MAX_LOGINS" "$BW_LIMIT" "SSH" > /dev/null 2>&1
+    /opt/janabitech/bin/janabitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "$MAX_LOGINS" "$BW_LIMIT" "SSH" > /dev/null 2>&1
     print_user_receipt "$USERNAME" "$PASSWORD" "$HOURS" "hours" "$MAX_LOGINS" "$BW_LIMIT"
 }
 
@@ -1812,7 +1812,7 @@ execute_renew_user() {
         if ! [[ "$MOD_DAYS" =~ ^-?[0-9]+$ ]]; then
             echo -e "${RED}[-] Invalid input.${NC}"; sleep 2; return
         fi
-        /opt/imagitech/bin/imagitech user renew "$FINAL_USERNAME" "$MOD_DAYS" > /dev/null 2>&1
+        /opt/janabitech/bin/janabitech user renew "$FINAL_USERNAME" "$MOD_DAYS" > /dev/null 2>&1
         local NEW_EXPIRY=$(sqlite3 "$DB_PATH" "SELECT expiry_date FROM users WHERE username='$FINAL_USERNAME';" 2>/dev/null)
         local NEW_DATE_FORMATTED=$(date -d "$NEW_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$NEW_EXPIRY")
         local MOD_DISPLAY=""
@@ -1899,7 +1899,7 @@ execute_del_user() {
 
     echo -e "\n${ORANGE}[*] Deleting ${#TO_DELETE[@]} account(s)...${NC}"
     for target in "${TO_DELETE[@]}"; do
-        /opt/imagitech/bin/imagitech user del "$target" > /dev/null 2>&1
+        /opt/janabitech/bin/janabitech user del "$target" > /dev/null 2>&1
         echo -e "  - Deleted: ${RED}${target}${NC}"
     done
     pause
@@ -1915,12 +1915,12 @@ execute_list_users() {
     draw_line
     
     declare -A online_counts
-    if [ -f "/opt/imagitech/core/online_users.txt" ]; then
+    if [ -f "/opt/janabitech/core/online_users.txt" ]; then
         while IFS='|' read -r uname count; do
             if [[ -n "$uname" && "$count" =~ ^[0-9]+$ ]]; then
                 online_counts["$uname"]="$count"
             fi
-        done < <(cat /opt/imagitech/core/online_users.txt || true)
+        done < <(cat /opt/janabitech/core/online_users.txt || true)
     fi
 
     local i=1
@@ -1965,12 +1965,12 @@ print_ssh_user_details() {
     local EXP_DATE_FORMATTED=$(date -d "$2" +"%B %d, %Y" 2>/dev/null || echo "$2")
     
     local IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+    local PUB_KEY=$(cat /opt/janabitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
     local MAX_LOGINS=$(sqlite3 "$DB_PATH" "SELECT max_logins FROM users WHERE username='$USERNAME';" 2>/dev/null || echo "2")
     local LOGIN_DISP="$MAX_LOGINS"
     if [ "$MAX_LOGINS" -eq 0 ]; then LOGIN_DISP="Unlimited"; fi
 
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     local COUNTRY="${SERVER_COUNTRY:-Unknown}"
     local ISP="${SERVER_ISP:-Unknown}"
 
@@ -2019,7 +2019,7 @@ execute_online_users() {
     printf "${BOLD}%-20s | %-15s${NC}\n" "USERNAME" "ACTIVE DEVICES"
     draw_line
     
-    local raw_data=$(/opt/imagitech/bin/imagitech sys online)
+    local raw_data=$(/opt/janabitech/bin/janabitech sys online)
     
     if [[ "$raw_data" == *"No active"* ]] || [[ "$raw_data" == *"starting"* ]]; then
         echo -e "${ORANGE}$raw_data${NC}"
@@ -2055,13 +2055,13 @@ execute_user_details() {
     
     # Fetch dynamic server data
     local IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+    local PUB_KEY=$(cat /opt/janabitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
 
     local MAX_LOGINS=$(sqlite3 "$DB_PATH" "SELECT max_logins FROM users WHERE username='$FINAL_USERNAME';" 2>/dev/null || echo "2")
     local LOGIN_DISP="$MAX_LOGINS"
     if [ "$MAX_LOGINS" -eq 0 ]; then LOGIN_DISP="Unlimited"; fi
 
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     local COUNTRY="${SERVER_COUNTRY:-Unknown}"
     local ISP="${SERVER_ISP:-Unknown}"
 
@@ -2163,9 +2163,9 @@ print_user_receipt() {
     local BW_LIMIT="${6:-0}"
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+    PUB_KEY=$(cat /opt/janabitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
     
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     local COUNTRY="${SERVER_COUNTRY:-Unknown}"
     local ISP="${SERVER_ISP:-Unknown}"
     
@@ -2237,7 +2237,7 @@ print_user_receipt() {
     echo -e "${BRIGHT_CYAN}Custom:${NC} GET http://${PRIMARY_DOMAIN}:8080 HTTP/1.1[crlf]Host: [SNI_BUG_HOST][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
     echo -e "$SEP"
     echo -e "⚠ ${BRIGHT_RED}NO SPAM • NO DDOS • NO TORRENT${NC} ⚠"
-    echo -e "🛒 ${BRIGHT_MAGENTA}Subscribe → @imagivpnbot  •  t.me/imagitech001${NC}"
+    echo -e "🛒 ${BRIGHT_MAGENTA}Subscribe → @imagivpnbot  •  t.me/janabitech001${NC}"
     echo -e "$SEP"
     echo -e "${DIM}Copy the text above to share with the user${NC}"
     if [[ -n "$FOOTER_MSG" ]]; then echo -e "$FOOTER_MSG"; fi
@@ -2299,8 +2299,8 @@ menu_domain_ssl() {
     while true; do
         clear
         # Re-source config inside the loop so the UI updates dynamically if a domain changes
-        source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
-        local PUB_KEY=$(cat /opt/imagitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
+        source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
+        local PUB_KEY=$(cat /opt/janabitech/core/keys/dnstt.pub 2>/dev/null || echo "Missing Key")
         
         draw_line
         echo -e "                   ${BOLD}DOMAIN & SSL${NC}                     "
@@ -2326,12 +2326,12 @@ menu_domain_ssl() {
                 echo -e "\n${CYAN}Current Domain: ${PRIMARY_DOMAIN}${NC}"
                 read -p "Enter New Host Domain: " new_host
                 if [[ -n "$new_host" ]]; then
-                    /opt/imagitech/bin/imagitech config host "$new_host"
+                    /opt/janabitech/bin/janabitech config host "$new_host"
                     echo ""
                     read -p "Renew Let's Encrypt SSL for $new_host now? (y/n): " do_ssl
                     if [[ "$do_ssl" =~ ^[Yy] ]]; then
                         echo -e "\n${ORANGE}[*] Requesting Certificate... this takes 30-60 seconds...${NC}"
-                        /opt/imagitech/bin/imagitech cert renew "$new_host"
+                        /opt/janabitech/bin/janabitech cert renew "$new_host"
                     fi
                 fi
                 pause ;;
@@ -2339,7 +2339,7 @@ menu_domain_ssl() {
                 echo -e "\n${CYAN}Current NS Domain: ${NS_DOMAIN}${NC}"
                 read -p "Enter New NS Domain: " new_ns
                 if [[ -n "$new_ns" ]]; then
-                    /opt/imagitech/bin/imagitech config ns "$new_ns"
+                    /opt/janabitech/bin/janabitech config ns "$new_ns"
                 fi
                 pause ;;
             3)
@@ -2383,12 +2383,12 @@ menu_domain_ssl() {
                 esac
 
                 if [[ -n "$new_sni" ]]; then
-                    /opt/imagitech/bin/imagitech config sni "$new_sni"
+                    /opt/janabitech/bin/janabitech config sni "$new_sni"
                 fi
                 pause ;;
             4) 
                 echo -e "\n${ORANGE}[*] Requesting Let's Encrypt Certificate. Services will temporarily pause...${NC}"
-                /opt/imagitech/bin/imagitech cert renew "$PRIMARY_DOMAIN"
+                /opt/janabitech/bin/janabitech cert renew "$PRIMARY_DOMAIN"
                 pause ;;
             5) 
                 clear
@@ -2403,15 +2403,15 @@ menu_domain_ssl() {
                 if [[ "$key_opt" == "1" ]]; then
                     read -p "Are you sure? (y/n): " confirm_dnstt
                     if [[ "$confirm_dnstt" =~ ^[Yy] ]]; then
-                        /opt/imagitech/bin/imagitech dnstt renew
+                        /opt/janabitech/bin/janabitech dnstt renew
                     fi
                 elif [[ "$key_opt" == "2" ]]; then
                     read -p "Enter Public Key: " custom_pub
                     read -p "Enter Private Key: " custom_priv
                     if [[ -n "$custom_pub" && -n "$custom_priv" ]]; then
-                        echo "$custom_pub" > /opt/imagitech/core/keys/dnstt.pub
-                        echo "$custom_priv" > /opt/imagitech/core/keys/dnstt.key
-                        systemctl restart imagitech-dnstt
+                        echo "$custom_pub" > /opt/janabitech/core/keys/dnstt.pub
+                        echo "$custom_priv" > /opt/janabitech/core/keys/dnstt.key
+                        systemctl restart janabitech-dnstt
                         echo -e "${GREEN}Custom keys applied!${NC}"
                     else
                         echo -e "${RED}Keys cannot be empty.${NC}"
@@ -2455,12 +2455,12 @@ menu_services() {
         read -p " Select Option : " opt
 
         case $opt in
-            1) /opt/imagitech/bin/imagitech service restart all; pause ;;
-            2) /opt/imagitech/bin/imagitech service restart dropbear; pause ;;
-            3) /opt/imagitech/bin/imagitech service restart imagitech-ws; pause ;;
-            4) /opt/imagitech/bin/imagitech service restart haproxy; pause ;;
-            5) /opt/imagitech/bin/imagitech service restart imagitech-xray; pause ;;
-            6) /opt/imagitech/bin/imagitech service restart imagitech-dnstt; pause ;;
+            1) /opt/janabitech/bin/janabitech service restart all; pause ;;
+            2) /opt/janabitech/bin/janabitech service restart dropbear; pause ;;
+            3) /opt/janabitech/bin/janabitech service restart janabitech-ws; pause ;;
+            4) /opt/janabitech/bin/janabitech service restart haproxy; pause ;;
+            5) /opt/janabitech/bin/janabitech service restart janabitech-xray; pause ;;
+            6) /opt/janabitech/bin/janabitech service restart janabitech-dnstt; pause ;;
             0|00) return ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 1 ;;
         esac
@@ -2542,11 +2542,11 @@ menu_monitoring() {
                 fi
                 draw_line
                 pause ;;
-            3) tail -n 50 /opt/imagitech/logs/imagitech.log; pause ;;
+            3) tail -n 50 /opt/janabitech/logs/janabitech.log; pause ;;
             4) grep "Failed password" /var/log/auth.log | tail -n 20; pause ;;
             5) 
-               if [ -x "/opt/imagitech/bin/btop" ]; then
-                   /opt/imagitech/bin/btop
+               if [ -x "/opt/janabitech/bin/btop" ]; then
+                   /opt/janabitech/bin/btop
                else
                    htop || top
                fi
@@ -2586,7 +2586,7 @@ menu_settings() {
 
         # 7. Telegram Bot Status
         local tg_status="${RED}[OFF]${NC}"
-        if systemctl is-active --quiet imagitech-telegram; then
+        if systemctl is-active --quiet janabitech-telegram; then
             tg_status="${GREEN}[ON]${NC}"
         fi
 
@@ -2621,18 +2621,18 @@ menu_settings() {
                 echo "0. Turn Off Auto Reboot"
                 read -p "Select Option: " rb_opt
                 case $rb_opt in
-                    1) /opt/imagitech/bin/imagitech sys autoreboot 6 ;;
-                    2) /opt/imagitech/bin/imagitech sys autoreboot 12 ;;
-                    3) /opt/imagitech/bin/imagitech sys autoreboot 24 ;;
+                    1) /opt/janabitech/bin/janabitech sys autoreboot 6 ;;
+                    2) /opt/janabitech/bin/janabitech sys autoreboot 12 ;;
+                    3) /opt/janabitech/bin/janabitech sys autoreboot 24 ;;
                     4) 
                         read -p "Enter time in 24h format (HH:MM): " specific_time
                         if [[ "$specific_time" =~ ^([0-9]{1,2}):([0-9]{2})$ ]]; then
-                            /opt/imagitech/bin/imagitech sys autoreboot "$specific_time"
+                            /opt/janabitech/bin/janabitech sys autoreboot "$specific_time"
                         else
                             echo -e "${RED}Invalid time format. Please use HH:MM (e.g., 15:30).${NC}"
                         fi
                         ;;
-            0|00) /opt/imagitech/bin/imagitech sys autoreboot 0 ;;
+            0|00) /opt/janabitech/bin/janabitech sys autoreboot 0 ;;
                     *) echo -e "${RED}Invalid selection.${NC}" ;;
                 esac
                 pause ;;
@@ -2648,14 +2648,14 @@ menu_settings() {
                 read -n 1 -s -r -p "Press any key to open the editor..."
                 
                 # Call the API which now handles launching nano natively
-                /opt/imagitech/bin/imagitech sys banner
+                /opt/janabitech/bin/janabitech sys banner
                 
                 pause ;;
             3) 
                clear
                echo -e "${CYAN}Initializing Server Speedtest...${NC}\n"
-               if [ -x "/opt/imagitech/bin/speedtest" ]; then
-                   /opt/imagitech/bin/speedtest --accept-license --accept-gdpr
+               if [ -x "/opt/janabitech/bin/speedtest" ]; then
+                   /opt/janabitech/bin/speedtest --accept-license --accept-gdpr
                else
                    echo -e "${RED}[!] Ookla Speedtest binary not found. Please re-run the installer.${NC}"
                fi
@@ -2663,17 +2663,17 @@ menu_settings() {
             4) 
                 clear
                 echo -e "${RED}${BOLD}======================================================${NC}"
-                echo -e "${RED}${BOLD}  DANGER: COMPLETELY UNINSTALL IMAGITECH PLATFORM     ${NC}"
+                echo -e "${RED}${BOLD}  DANGER: COMPLETELY UNINSTALL JANABITECH PLATFORM     ${NC}"
                 echo -e "${RED}${BOLD}======================================================${NC}"
                 echo -e "This action will:"
                 echo -e "  - Delete all VPN accounts & databases"
                 echo -e "  - Remove all Sidecars, Ports, and Routing rules"
-                echo -e "  - Wipe the /opt/imagitech directory entirely\n"
+                echo -e "  - Wipe the /opt/janabitech directory entirely\n"
                 
                 read -p "Are you absolutely sure? (Type 'YES' to confirm): " confirm_wipe
                 if [ "$confirm_wipe" == "YES" ]; then
                     echo -e "\n${ORANGE}[*] Wiping infrastructure...${NC}"
-                    /opt/imagitech/bin/imagitech sys uninstall
+                    /opt/janabitech/bin/janabitech sys uninstall
                     echo -e "${GREEN}System is clean. Exiting...${NC}"
                     sleep 2
                     exit 0
@@ -2684,7 +2684,7 @@ menu_settings() {
                 ;;
             5)
                 echo -e "\n${CYAN}[*] Flushing Server Geo-Data cache...${NC}"
-                rm -f /opt/imagitech/core/server_geo.env
+                rm -f /opt/janabitech/core/server_geo.env
                 fetch_server_geo
                 echo -e "${GREEN}[+] Geographic data successfully refreshed!${NC}"
                 pause ;;
@@ -2696,14 +2696,14 @@ menu_settings() {
                 read -p "Proceed with deployment? (y/n): " confirm_f2b
                 if [[ "$confirm_f2b" =~ ^[Yy] ]]; then
                     echo ""
-                    /opt/imagitech/bin/imagitech sys fail2ban
+                    /opt/janabitech/bin/janabitech sys fail2ban
                 fi
                 pause ;;
             7)
                 while true; do
                     clear
                     echo -e "\n${CYAN}=== TELEGRAM BOT CONTROLLER ===${NC}"
-                    if systemctl is-active --quiet imagitech-telegram 2>/dev/null; then
+                    if systemctl is-active --quiet janabitech-telegram 2>/dev/null; then
                         echo -e "Status: ${GREEN}[ACTIVE]${NC}"
                     else
                         echo -e "Status: ${RED}[DISABLED/INACTIVE]${NC}"
@@ -2723,30 +2723,30 @@ menu_settings() {
                             read -p "Enter your Telegram User ID (e.g., 123456789): " admin_id
                             
                             if [ -n "$bot_token" ] && [ -n "$admin_id" ]; then
-                                echo "BOT_TOKEN=\"$bot_token\"" > /opt/imagitech/core/telegram.conf
-                                echo "ADMIN_ID=\"$admin_id\"" >> /opt/imagitech/core/telegram.conf
+                                echo "BOT_TOKEN=\"$bot_token\"" > /opt/janabitech/core/telegram.conf
+                                echo "ADMIN_ID=\"$admin_id\"" >> /opt/janabitech/core/telegram.conf
                                 
                                 # Install systemd service
-                                cat <<'EOF' > /tmp/imagitech-telegram.service.tmp
+                                cat <<'EOF' > /tmp/janabitech-telegram.service.tmp
 [Unit]
-Description=Imagitech Telegram Controller
+Description=Janabitech Telegram Controller
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/imagitech/services/monitor
-ExecStart=/bin/bash -c 'if [ -f /opt/imagitech/services/monitor/telegram-controller ]; then exec /opt/imagitech/services/monitor/telegram-controller; else exec /usr/bin/python3 -u /opt/imagitech/services/monitor/telegram-controller.py; fi'
+WorkingDirectory=/opt/janabitech/services/monitor
+ExecStart=/bin/bash -c 'if [ -f /opt/janabitech/services/monitor/telegram-controller ]; then exec /opt/janabitech/services/monitor/telegram-controller; else exec /usr/bin/python3 -u /opt/janabitech/services/monitor/telegram-controller.py; fi'
 Restart=always
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
-                                mv /tmp/imagitech-telegram.service.tmp /etc/systemd/system/imagitech-telegram.service
+                                mv /tmp/janabitech-telegram.service.tmp /etc/systemd/system/janabitech-telegram.service
                                 systemctl daemon-reload
-                                systemctl enable imagitech-telegram >/dev/null 2>&1
-                                systemctl restart imagitech-telegram
+                                systemctl enable janabitech-telegram >/dev/null 2>&1
+                                systemctl restart janabitech-telegram
                                 
                                 echo -e "\n${GREEN}[✓] Telegram Controller configured and started!${NC}"
                                 echo -e "Send /start to your bot to test it."
@@ -2757,15 +2757,15 @@ EOF
                             ;;
                         2)
                             echo -e "\n${CYAN}[*] Starting Bot Controller...${NC}"
-                            systemctl enable imagitech-telegram >/dev/null 2>&1
-                            systemctl start imagitech-telegram >/dev/null 2>&1
+                            systemctl enable janabitech-telegram >/dev/null 2>&1
+                            systemctl start janabitech-telegram >/dev/null 2>&1
                             echo -e "${GREEN}[+] Bot Controller Enabled!${NC}"
                             pause
                             ;;
                         3)
                             echo -e "\n${ORANGE}[*] Stopping Bot Controller...${NC}"
-                            systemctl stop imagitech-telegram >/dev/null 2>&1
-                            systemctl disable imagitech-telegram >/dev/null 2>&1
+                            systemctl stop janabitech-telegram >/dev/null 2>&1
+                            systemctl disable janabitech-telegram >/dev/null 2>&1
                             echo -e "${GREEN}[+] Bot Controller Disabled!${NC}"
                             pause
                             ;;
@@ -2824,7 +2824,7 @@ menu_backup_restore() {
         echo -e "                 ${BOLD}BACKUP & RESTORE${NC}                   "
         draw_line
         local imagi_status="${RED}[OFF]${NC}"
-        if grep -q "IMAGITECH_BACKUP_URL" /opt/imagitech/core/telegram.conf 2>/dev/null; then
+        if grep -q "JANABITECH_BACKUP_URL" /opt/janabitech/core/telegram.conf 2>/dev/null; then
             imagi_status="${GREEN}[ON]${NC}"
         fi
         
@@ -2837,7 +2837,7 @@ menu_backup_restore() {
         printf "  ${CYAN}[02]${NC} %-40s\n" "Restore from Backup"
         printf "  ${CYAN}[03]${NC} %-40s\n" "Send Backup to Telegram Bot"
         printf "  ${CYAN}[04]${NC} %-40s %b\n" "Setup Telegram Auto-Backup" "${tg_backup_status}"
-        printf "  ${CYAN}[05]${NC} %-40s %b\n" "Setup ImagiTech Cloud Backup" "${imagi_status}"
+        printf "  ${CYAN}[05]${NC} %-40s %b\n" "Setup JanabiTech Cloud Backup" "${imagi_status}"
         echo -e ""
         echo -e "  ${RED}[00]${NC} Return to Main Menu"
         draw_line
@@ -2846,13 +2846,13 @@ menu_backup_restore() {
         case $opt in
             1)
                 echo -e "\n${CYAN}Creating backup archive...${NC}"
-                /opt/imagitech/bin/imagitech sys backup
+                /opt/janabitech/bin/janabitech sys backup
                 pause
                 ;;
             2)
                 clear
                 echo -e "${CYAN}=== RESTORE SYSTEM BACKUP ===${NC}"
-                local backup_dir="/opt/imagitech/backups"
+                local backup_dir="/opt/janabitech/backups"
                 
                 # Ensure directory exists and is writable for SFTP uploads
                 if [ ! -d "$backup_dir" ]; then
@@ -2895,10 +2895,10 @@ menu_backup_restore() {
                         local dl_target="$backup_dir/cloud_backup_$(date +%s).tar.gz.enc"
                         
                         local wget_cmd="wget -q --show-progress --no-check-certificate"
-                        if [[ "$cloud_url" == *"backups.imagitech.online"* ]]; then
+                        if [[ "$cloud_url" == *"backups.janabitech.online"* ]]; then
                             # Auto-inject default credentials for the private backup server
                             # We MUST use --auth-no-challenge because the custom Python backend does not send a WWW-Authenticate header
-                            wget_cmd="$wget_cmd --auth-no-challenge --http-user=admin --http-password=Imagitech001"
+                            wget_cmd="$wget_cmd --auth-no-challenge --http-user=admin --http-password=Janabitech001"
                         fi
 
                         if eval "$wget_cmd -O \"$dl_target\" \"$cloud_url\""; then
@@ -2928,7 +2928,7 @@ menu_backup_restore() {
                     
                     if [ "$confirm_res" == "YES" ]; then
                         echo -e "\n${ORANGE}[*] Restoring system state and rebooting daemons...${NC}"
-                        /opt/imagitech/bin/imagitech sys restore "$target_file"
+                        /opt/janabitech/bin/janabitech sys restore "$target_file"
                         echo -e "${GREEN}[+] Restore complete! System state reverted successfully.${NC}"
                     else
                         echo -e "\n${GREEN}Restore aborted.${NC}"
@@ -2937,7 +2937,7 @@ menu_backup_restore() {
                 pause
                 ;;
             3)
-                /opt/imagitech/bin/imagitech sys backup_telegram
+                /opt/janabitech/bin/janabitech sys backup_telegram
                 pause
                 ;;
             4)
@@ -2947,33 +2947,33 @@ menu_backup_restore() {
                 echo "0. Disable Auto-Backup"
                 read -p "Select Option: " ab_opt
                 if [[ "$ab_opt" =~ ^[0-2]$ ]]; then
-                    /opt/imagitech/bin/imagitech sys autobackup "$ab_opt"
+                    /opt/janabitech/bin/janabitech sys autobackup "$ab_opt"
                 else
                     echo -e "${RED}Invalid selection.${NC}"
                 fi
                 pause
                 ;;
             5)
-                echo -e "\n${CYAN}=== SETUP IMAGITECH CLOUD BACKUP ===${NC}"
-                if grep -q "IMAGITECH_BACKUP_URL" /opt/imagitech/core/telegram.conf 2>/dev/null; then
-                    read -p "ImagiTech Cloud Backup is currently enabled. Disable it? (y/n): " dis_opt
+                echo -e "\n${CYAN}=== SETUP JANABITECH CLOUD BACKUP ===${NC}"
+                if grep -q "JANABITECH_BACKUP_URL" /opt/janabitech/core/telegram.conf 2>/dev/null; then
+                    read -p "JanabiTech Cloud Backup is currently enabled. Disable it? (y/n): " dis_opt
                     if [[ "$dis_opt" =~ ^[Yy] ]]; then
-                        sed -i '/IMAGITECH_BACKUP_URL=/d' /opt/imagitech/core/telegram.conf 2>/dev/null
-                        sed -i '/IMAGITECH_NODE_KEY=/d' /opt/imagitech/core/telegram.conf 2>/dev/null
-                        echo -e "\033[0;32m[+] ImagiTech Cloud Backup disabled successfully!\033[0m"
+                        sed -i '/JANABITECH_BACKUP_URL=/d' /opt/janabitech/core/telegram.conf 2>/dev/null
+                        sed -i '/JANABITECH_NODE_KEY=/d' /opt/janabitech/core/telegram.conf 2>/dev/null
+                        echo -e "\033[0;32m[+] JanabiTech Cloud Backup disabled successfully!\033[0m"
                         pause
                         continue
                     fi
                 fi
-                echo -e "Enable automatic backups to the ImagiTech Cloud Server (backups.imagitech.online)."
+                echo -e "Enable automatic backups to the JanabiTech Cloud Server (backups.janabitech.online)."
                 echo -e "Your backups will be encrypted on this VPS and securely sent to the cloud."
                 echo -e ""
-                read -p "Press Enter to enable ImagiTech Cloud Backup..." 
-                sed -i '/IMAGITECH_BACKUP_URL=/d' /opt/imagitech/core/telegram.conf 2>/dev/null
-                sed -i '/IMAGITECH_NODE_KEY=/d' /opt/imagitech/core/telegram.conf 2>/dev/null
-                echo "IMAGITECH_BACKUP_URL=\"https://backups.imagitech.online\"" >> /opt/imagitech/core/telegram.conf
-                echo "IMAGITECH_NODE_KEY=\"imagi-tech-global-node-key\"" >> /opt/imagitech/core/telegram.conf
-                echo -e "\033[0;32m[+] ImagiTech Cloud Backup enabled successfully!\033[0m"
+                read -p "Press Enter to enable JanabiTech Cloud Backup..." 
+                sed -i '/JANABITECH_BACKUP_URL=/d' /opt/janabitech/core/telegram.conf 2>/dev/null
+                sed -i '/JANABITECH_NODE_KEY=/d' /opt/janabitech/core/telegram.conf 2>/dev/null
+                echo "JANABITECH_BACKUP_URL=\"https://backups.janabitech.online\"" >> /opt/janabitech/core/telegram.conf
+                echo "JANABITECH_NODE_KEY=\"imagi-tech-global-node-key\"" >> /opt/janabitech/core/telegram.conf
+                echo -e "\033[0;32m[+] JanabiTech Cloud Backup enabled successfully!\033[0m"
                 echo -e ""
                 read -p "Would you like to run a test backup now to verify the connection and get a download URL? [Y/n]: " run_test
                 if [[ "$run_test" =~ ^[Yy]$ ]] || [ -z "$run_test" ]; then
@@ -2999,7 +2999,7 @@ show_dashboard() {
 
         # ── HEADER ──────────────────────────────────────────
         draw_top
-        center_text "✦  IMAGITECH AUTOSCRIPT PRO  ✦" "$BOLD$BRIGHT_CYAN"
+        center_text "✦  JANABITECH AUTOSCRIPT PRO  ✦" "$BOLD$BRIGHT_CYAN"
         center_text "Premium VPN Infrastructure Dashboard" "$DIM"
         draw_mid
 
@@ -3018,15 +3018,15 @@ show_dashboard() {
         center_text "▸ SERVICE HEALTH ◂" "$BOLD$WHITE"
         draw_thin
 
-        local ws_st=$(check_service imagitech-ws)
+        local ws_st=$(check_service janabitech-ws)
         local ha_st=$(check_service haproxy)
         local db_st=$(check_service dropbear)
         local da_st=$(check_service danted)
-        local ud_st=$(check_service imagitech-udp-custom)
-        local dn_st=$(check_service imagitech-dnstt)
-        local xr_st=$(check_service imagitech-xray)
-        local mo_st=$(check_service imagitech-monitor)
-        local tg_st=$(check_service imagitech-telegram)
+        local ud_st=$(check_service janabitech-udp-custom)
+        local dn_st=$(check_service janabitech-dnstt)
+        local xr_st=$(check_service janabitech-xray)
+        local mo_st=$(check_service janabitech-monitor)
+        local tg_st=$(check_service janabitech-telegram)
 
         pad_svc() { if [[ "$1" == *"ON"* ]]; then echo -e "$1 "; else echo -e "$1"; fi; }
         
@@ -3066,7 +3066,7 @@ show_dashboard() {
         row "  ${BRIGHT_RED}[00]${NC} Exit"
         empty_row
         draw_mid
-        center_text "Subscribe → @imagivpnbot  •  t.me/imagitech001" "$BRIGHT_MAGENTA"
+        center_text "Subscribe → @imagivpnbot  •  t.me/janabitech001" "$BRIGHT_MAGENTA"
         draw_bot
         echo ""
         read -p " Select Option : " opt
@@ -3081,14 +3081,14 @@ show_dashboard() {
             7) menu_settings ;;
             8) 
                clear
-               echo -e "${CYAN}=== UPDATE IMAGITECH PLATFORM ===${NC}"
+               echo -e "${CYAN}=== UPDATE JANABITECH PLATFORM ===${NC}"
                echo -e "${ORANGE}This will fetch the latest core files from GitHub.${NC}"
                echo -e "Your users, database, domains, and configurations will ${GREEN}NOT${NC} be affected.\n"
                
                read -p "Proceed with update? (y/n): " confirm_update
                if [[ "$confirm_update" =~ ^[Yy] ]]; then
                    echo ""
-                   /opt/imagitech/bin/imagitech sys update
+                   /opt/janabitech/bin/janabitech sys update
                    pause
                fi
                ;;
@@ -3104,11 +3104,11 @@ show_dashboard() {
 
 # Boot the HUD
 # show_dashboard (run by monolith)
-# --- START OF FILE: bin/imagitech ---
-# File: /opt/imagitech/bin/imagitech
+# --- START OF FILE: bin/janabitech ---
+# File: /opt/janabitech/bin/janabitech
 # Purpose: The internal CLI API router.
 
-source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
 :
 :
 :
@@ -3124,20 +3124,20 @@ ARG6="$6"
 ARG7="$7"
 ARG8="$8"
 
-if [ -f "/opt/imagitech/core/license_status" ] && [ "$(cat /opt/imagitech/core/license_status)" == "REVOKED" ]; then
+if [ -f "/opt/janabitech/core/license_status" ] && [ "$(cat /opt/janabitech/core/license_status)" == "REVOKED" ]; then
     if [ "$COMMAND" == "sys" ] && [[ "$SUBCOMMAND" == "uninstall" || "$SUBCOMMAND" == "update" ]]; then
         : # Allow uninstall and update to proceed even if revoked
     else
         echo -e "\033[0;31m[FATAL] LICENSE REVOKED OR EXPIRED.\033[0m"
         echo -e "\033[0;31mAll services have been suspended. Please renew your license via @imagivpnbot\033[0m"
-        echo -e "\033[0;33mTo completely remove this script from your server, type:\033[0m imagitech sys uninstall"
+        echo -e "\033[0;33mTo completely remove this script from your server, type:\033[0m janabitech sys uninstall"
         exit 1
     fi
 fi
 
 show_help() {
-    echo -e "\033[0;36mIMAGITECH CLI API\033[0m"
-    echo "Usage: imagitech <resource> <action> [args]"
+    echo -e "\033[0;36mJANABITECH CLI API\033[0m"
+    echo "Usage: janabitech <resource> <action> [args]"
     echo ""
     echo "Commands:"
     echo "  user add <user> <pass> <days> <max_logins> <bw_limit>  - Create a new VPN account"
@@ -3158,7 +3158,7 @@ show_help() {
     echo "  sys autobackup [1|2|0]         - Configure Auto Backup to Telegram via Cron"
     echo "  sys restore <file_path>        - Restore from an archive"
     echo "  sys update                     - Update script from GitHub"
-    echo "  sys uninstall                  - Remove Imagitech completely"
+    echo "  sys uninstall                  - Remove Janabitech completely"
 }
 
 case "$COMMAND" in
@@ -3206,25 +3206,25 @@ case "$COMMAND" in
                 if [ -z "$secret" ]; then
                     secret=$(openssl rand -hex 16)
                 fi
-                mkdir -p /opt/imagitech/services/trial-api
-                if [ ! -f "/opt/imagitech/services/trial-api/server.py" ]; then
-                    curl -sS -L -o "/opt/imagitech/services/trial-api/server.py" "https://vpn.imagitech.online/raw/services/trial-api/server.py"
+                mkdir -p /opt/janabitech/services/trial-api
+                if [ ! -f "/opt/janabitech/services/trial-api/server.py" ]; then
+                    curl -sS -L -o "/opt/janabitech/services/trial-api/server.py" "https://vpn.janabitech.online/raw/services/trial-api/server.py"
                 fi
-                chmod +x /opt/imagitech/services/trial-api/server.py
+                chmod +x /opt/janabitech/services/trial-api/server.py
                 
-                echo "PORT=$port" > /opt/imagitech/core/trial-api.conf
-                echo "SECRET=$secret" >> /opt/imagitech/core/trial-api.conf
-                chmod 600 /opt/imagitech/core/trial-api.conf
+                echo "PORT=$port" > /opt/janabitech/core/trial-api.conf
+                echo "SECRET=$secret" >> /opt/janabitech/core/trial-api.conf
+                chmod 600 /opt/janabitech/core/trial-api.conf
                 
-                cat <<TRIALEOF > /etc/systemd/system/imagitech-trial-api.service
+                cat <<TRIALEOF > /etc/systemd/system/janabitech-trial-api.service
 [Unit]
-Description=Imagitech Trial API Server
+Description=Janabitech Trial API Server
 After=network.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/bin/bash -c 'if [ -f /opt/imagitech/services/trial-api/server ]; then exec /opt/imagitech/services/trial-api/server; else exec /usr/bin/python3 -u /opt/imagitech/services/trial-api/server.py; fi'
+ExecStart=/bin/bash -c 'if [ -f /opt/janabitech/services/trial-api/server ]; then exec /opt/janabitech/services/trial-api/server; else exec /usr/bin/python3 -u /opt/janabitech/services/trial-api/server.py; fi'
 Restart=always
 RestartSec=5
 
@@ -3232,20 +3232,20 @@ RestartSec=5
 WantedBy=multi-user.target
 TRIALEOF
                 systemctl daemon-reload
-                systemctl enable imagitech-trial-api
-                systemctl restart imagitech-trial-api
+                systemctl enable janabitech-trial-api
+                systemctl restart janabitech-trial-api
                 echo "Trial API installed on port $port"
                 echo "Secret: $secret"
                 echo "Use this in your bot: /set_trial_server \$(curl -s4 ifconfig.me) $port $secret"
                 ;;
             status)
-                systemctl status imagitech-trial-api --no-pager
+                systemctl status janabitech-trial-api --no-pager
                 ;;
             stop)
-                systemctl stop imagitech-trial-api
+                systemctl stop janabitech-trial-api
                 echo "Trial API stopped."
                 ;;
-            *) echo "Usage: imagitech trial-api [install|status|stop] [port] [secret]" ;;
+            *) echo "Usage: janabitech trial-api [install|status|stop] [port] [secret]" ;;
         esac
         ;;
     sys)
@@ -3258,7 +3258,7 @@ TRIALEOF
             restore)    restore_backup "$TARGET" ;;
             update)
                  echo "[*] Pulling latest changes from Cloud Engine..."
-                 REPO_URL="https://vpn.imagitech.online/raw"
+                 REPO_URL="https://vpn.janabitech.online/raw"
                  
                  if [[ -n "$GITHUB_TOKEN" ]]; then
                      curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o "/tmp/update.tar.gz" "${REPO_URL}/update.tar.gz"
@@ -3267,9 +3267,9 @@ TRIALEOF
                  fi
                  
                  if [ $? -eq 0 ] && [ -s "/tmp/update.tar.gz" ]; then
-                     tar -xzf /tmp/update.tar.gz -C /opt/imagitech/
+                     tar -xzf /tmp/update.tar.gz -C /opt/janabitech/
                      rm -f /tmp/update.tar.gz
-                     chmod -R 755 /opt/imagitech/bin/ /opt/imagitech/lib/ /opt/imagitech/menus/ /opt/imagitech/services/
+                     chmod -R 755 /opt/janabitech/bin/ /opt/janabitech/lib/ /opt/janabitech/menus/ /opt/janabitech/services/
                  else
                      echo "[ERROR] Failed to download system updates."
                      rm -f "/tmp/update.tar.gz"
@@ -3278,30 +3278,30 @@ TRIALEOF
                 echo "[*] Patching existing configurations..."
                 
                 # Patch Xray config: Inject API inbound if missing
-                if grep -q '"api"' /opt/imagitech/xray/config.json 2>/dev/null && ! grep -q '"api-inbound"' /opt/imagitech/xray/config.json 2>/dev/null; then
-                    jq '.inbounds = [{"tag":"api-inbound","listen":"127.0.0.1","port":10085,"protocol":"dokodemo-door","settings":{"address":"127.0.0.1"}}] + .inbounds | .routing.rules |= map(if .outboundTag == "api" then .inboundTag = ["api-inbound"] else . end)' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                if grep -q '"api"' /opt/janabitech/xray/config.json 2>/dev/null && ! grep -q '"api-inbound"' /opt/janabitech/xray/config.json 2>/dev/null; then
+                    jq '.inbounds = [{"tag":"api-inbound","listen":"127.0.0.1","port":10085,"protocol":"dokodemo-door","settings":{"address":"127.0.0.1"}}] + .inbounds | .routing.rules |= map(if .outboundTag == "api" then .inboundTag = ["api-inbound"] else . end)' /opt/janabitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/janabitech/xray/config.json
                     echo "[✓] Xray API inbound injected."
                 fi
                 
                 # Patch Xray config: Inject stats policy block for bandwidth & online user tracking
-                if ! grep -q '"statsUserUplink"' /opt/imagitech/xray/config.json 2>/dev/null; then
-                    jq '.policy = {"levels":{"0":{"statsUserUplink":true,"statsUserDownlink":true,"statsUserOnline":true}},"system":{"statsInboundUplink":true,"statsInboundDownlink":true,"statsOutboundUplink":true,"statsOutboundDownlink":true}}' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                if ! grep -q '"statsUserUplink"' /opt/janabitech/xray/config.json 2>/dev/null; then
+                    jq '.policy = {"levels":{"0":{"statsUserUplink":true,"statsUserDownlink":true,"statsUserOnline":true}},"system":{"statsInboundUplink":true,"statsInboundDownlink":true,"statsOutboundUplink":true,"statsOutboundDownlink":true}}' /opt/janabitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/janabitech/xray/config.json
                     echo "[✓] Xray stats policy injected for bandwidth tracking."
                 fi
                 
                 # Patch Xray config: Remove duplicate api inbound (tag "api" on port 10085)
-                if jq -e '[.inbounds[] | select(.port == 10085)] | length > 1' /opt/imagitech/xray/config.json >/dev/null 2>&1; then
-                    jq '.inbounds |= [.[] | select(.tag != "api" or .port != 10085)] | .inbounds |= [.[] | select(.tag == "api-inbound" or .protocol != "dokodemo-door" or (.protocol == "dokodemo-door" and .tag == "api-inbound"))]' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                if jq -e '[.inbounds[] | select(.port == 10085)] | length > 1' /opt/janabitech/xray/config.json >/dev/null 2>&1; then
+                    jq '.inbounds |= [.[] | select(.tag != "api" or .port != 10085)] | .inbounds |= [.[] | select(.tag == "api-inbound" or .protocol != "dokodemo-door" or (.protocol == "dokodemo-door" and .tag == "api-inbound"))]' /opt/janabitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/janabitech/xray/config.json
                     echo "[✓] Duplicate API inbound removed."
                 fi
                 
                 # Sync users into the patched config and restart Xray
                 :
                 sync_xray_users 2>/dev/null
-                systemctl restart imagitech-xray 2>/dev/null
+                systemctl restart janabitech-xray 2>/dev/null
                 
                 # Apply Database Migrations (in case schema evolved)
-                DB_PATH="/opt/imagitech/core/database.db"
+                DB_PATH="/opt/janabitech/core/database.db"
                 if [ -f "$DB_PATH" ]; then
                     if [[ -z $(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage") ]]; then
                         sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_usage BIGINT DEFAULT 0;" 2>/dev/null
@@ -3315,21 +3315,21 @@ TRIALEOF
                 fi
                 
                 # Deploy license tamper-detection guard (idempotent)
-                if [ ! -f "/etc/systemd/system/imagitech-license-guard.path" ]; then
-                    cat <<'GUARDPATH' > /etc/systemd/system/imagitech-license-guard.path
+                if [ ! -f "/etc/systemd/system/janabitech-license-guard.path" ]; then
+                    cat <<'GUARDPATH' > /etc/systemd/system/janabitech-license-guard.path
 [Unit]
 Description=Watch for tampering of license heartbeat cron
 
 [Path]
-PathChanged=/etc/cron.hourly/imagitech-heartbeat
-PathExists=/etc/cron.hourly/imagitech-heartbeat
-Unit=imagitech-license-guard.service
+PathChanged=/etc/cron.hourly/janabitech-heartbeat
+PathExists=/etc/cron.hourly/janabitech-heartbeat
+Unit=janabitech-license-guard.service
 
 [Install]
 WantedBy=multi-user.target
 GUARDPATH
 
-                    cat <<'GUARDSVC' > /etc/systemd/system/imagitech-license-guard.service
+                    cat <<'GUARDSVC' > /etc/systemd/system/janabitech-license-guard.service
 [Unit]
 Description=License tamper response - re-verify and repair heartbeat
 
@@ -3337,30 +3337,30 @@ Description=License tamper response - re-verify and repair heartbeat
 Type=oneshot
 ExecStart=/bin/bash -c '\
   IP=$(curl -s4 ifconfig.me); \
-  if [ ! -x /etc/cron.hourly/imagitech-heartbeat ]; then \
-    systemctl restart imagitech-monitor 2>/dev/null; \
+  if [ ! -x /etc/cron.hourly/janabitech-heartbeat ]; then \
+    systemctl restart janabitech-monitor 2>/dev/null; \
     sleep 5; \
   fi; \
-  RESPONSE=$(curl -s --max-time 10 "https://vpn.imagitech.online/api/v1/ip/verify?ip=${IP}"); \
+  RESPONSE=$(curl -s --max-time 10 "https://vpn.janabitech.online/api/v1/ip/verify?ip=${IP}"); \
   STATUS=$(echo "$RESPONSE" | grep -o "\"status\":\"[^\"]*\"" | cut -d"\"" -f4); \
   if [ "$STATUS" != "active" ]; then \
-    systemctl stop xray haproxy nginx dropbear stunnel4 imagitech-ws imagitech-dnstt imagitech-udp-custom 2>/dev/null; \
-    echo "REVOKED" > /opt/imagitech/core/license_status; \
+    systemctl stop xray haproxy nginx dropbear stunnel4 janabitech-ws janabitech-dnstt janabitech-udp-custom 2>/dev/null; \
+    echo "REVOKED" > /opt/janabitech/core/license_status; \
   fi'
 GUARDSVC
 
                     systemctl daemon-reload
-                    systemctl enable --now imagitech-license-guard.path 2>/dev/null
+                    systemctl enable --now janabitech-license-guard.path 2>/dev/null
                     echo "[✓] License tamper-detection guard deployed."
                 fi
 
-                systemctl restart imagitech-monitor imagitech-telegram 2>/dev/null
+                systemctl restart janabitech-monitor janabitech-telegram 2>/dev/null
                 echo "[✓] Core scripts updated and services restarted."
                 ;;
             uninstall)  uninstall_script ;;
             online)
-                if [ -f "/opt/imagitech/core/online_users.txt" ]; then
-                    cat "/opt/imagitech/core/online_users.txt"
+                if [ -f "/opt/janabitech/core/online_users.txt" ]; then
+                    cat "/opt/janabitech/core/online_users.txt"
                 else
                     echo "Daemon is starting up..."
                 fi
@@ -3377,11 +3377,11 @@ esac
 # --- MULTI-CALL ENTRYPOINT ---
 INVOKED_AS=$(basename "$1")
 if [[ "$INVOKED_AS" == "menu" ]]; then
-    if [ -f /opt/imagitech/core/imagitech.conf ]; then
-        source /opt/imagitech/core/imagitech.conf
+    if [ -f /opt/janabitech/core/janabitech.conf ]; then
+        source /opt/janabitech/core/janabitech.conf
     fi
     show_dashboard
-elif [[ "$INVOKED_AS" == "imagitech_core" ]]; then
+elif [[ "$INVOKED_AS" == "janabitech_core" ]]; then
     FUNC_NAME="$2"
     shift 2
     if declare -f "$FUNC_NAME" > /dev/null; then
@@ -3391,8 +3391,8 @@ elif [[ "$INVOKED_AS" == "imagitech_core" ]]; then
         exit 1
     fi
 else
-    if [ -f /opt/imagitech/core/imagitech.conf ]; then
-        source /opt/imagitech/core/imagitech.conf
+    if [ -f /opt/janabitech/core/janabitech.conf ]; then
+        source /opt/janabitech/core/janabitech.conf
     fi
     shift
     run_cli_router "$@"
