@@ -28,7 +28,7 @@ XRAY_ERROR_LOG="/opt/janabitech/logs/xray-error.log"
 XRAY_SERVICE="janabitech-xray"
 XRAY_GEO_DIR="${XRAY_DIR}/geo"
 
-XRAY_VERSION="v25.9.21"
+XRAY_VERSION="v25.2.21"
 
 # Cloudflare-friendly port assignments (kept in a single source of truth)
 declare -A XRAY_PORTS=(
