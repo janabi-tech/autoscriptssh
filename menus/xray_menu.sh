@@ -1,4 +1,4 @@
-# XRAY Panel - Imagi-Tech VPN
+# XRAY Panel - Janabi-Tech VPN
 
 menu_xray() {
     while true; do
@@ -54,11 +54,11 @@ execute_xray_user_details() {
     local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     
     local PORT="443"
     local SNI="${REALITY_SNI:-www.microsoft.com}"
@@ -124,7 +124,7 @@ execute_xray_add_user() {
         # Auto-generate password since XRAY doesn't care much, but SSH needs one for the unified DB
         PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c8)
 
-        /opt/imagitech/bin/imagitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "XRAY" > /dev/null 2>&1
+        /opt/janabitech/bin/janabitech user add "$USERNAME" "$PASSWORD" "$DAYS" "$MAX_LOGINS" "$BW_LIMIT" "XRAY" > /dev/null 2>&1
         API_STATUS=$?
         
         if [ $API_STATUS -eq 2 ]; then
@@ -151,7 +151,7 @@ execute_xray_trial_user() {
     read -p "Duration in Hours [default: 2]: " HOURS
     HOURS=${HOURS:-2}
 
-    /opt/imagitech/bin/imagitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "2" "0" "XRAY" > /dev/null 2>&1
+    /opt/janabitech/bin/janabitech user trial "$USERNAME" "$PASSWORD" "$HOURS" "2" "0" "XRAY" > /dev/null 2>&1
     
     echo "1. VLESS Reality xHTTP"
     echo "2. VLESS Reality Vision"
@@ -181,11 +181,11 @@ print_xray_receipt() {
     local PROTOCOL="$4"
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
-    source /opt/imagitech/core/server_geo.env 2>/dev/null
+    source /opt/janabitech/core/server_geo.env 2>/dev/null
     
     if [ "$TIME_TYPE" == "hours" ]; then
         EXP_DATE_FORMATTED=$(date -d "+${TIME_VAL} hours" +"%B %d, %Y - %H:%M")
@@ -276,8 +276,8 @@ execute_xray_user_details_from_list() {
     local EXP_DATE_FORMATTED=$(date -d "$FINAL_EXPIRY" +"%B %d, %Y" 2>/dev/null || echo "$FINAL_EXPIRY")
     
     local UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM users WHERE username='$USERNAME';")
-    local REALITY_PBK=$(cat /opt/imagitech/core/keys/reality.pub 2>/dev/null || echo "")
-    local REALITY_SID=$(cat /opt/imagitech/core/keys/reality.sid 2>/dev/null || echo "")
+    local REALITY_PBK=$(cat /opt/janabitech/core/keys/reality.pub 2>/dev/null || echo "")
+    local REALITY_SID=$(cat /opt/janabitech/core/keys/reality.sid 2>/dev/null || echo "")
     
     IP_ADDR=$(curl -sS ipv4.icanhazip.com)
     
