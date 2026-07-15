@@ -1,0 +1,39 @@
+# File: /opt/janabitech/lib/services.sh
+# Purpose: Safe service orchestration and restarts.
+
+source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
+:
+
+restart_service() {
+    local service_name="$1"
+    
+    if [ "$service_name" == "all" ]; then
+        log_event "INFO" "Restarting ALL Janabitech services..."
+        local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom haproxy janabitech-xray dropbear danted ssh sshd)
+        for svc in "${services[@]}"; do
+            systemctl restart "$svc" >/dev/null 2>&1
+            log_event "INFO" "Restarted $svc"
+        done
+        return 0
+    fi
+
+    # Strict whitelist to prevent arbitrary systemctl execution
+    case "$service_name" in
+        dropbear|haproxy|janabitech-xray|janabitech-ws|janabitech-dnstt|janabitech-monitor|danted|janabitech-udp-custom|ssh|sshd)
+            log_event "INFO" "Restarting service: $service_name"
+            systemctl restart "$service_name"
+            
+            if systemctl is-active --quiet "$service_name"; then
+                log_event "INFO" "Successfully restarted $service_name."
+                return 0
+            else
+                log_event "ERROR" "Failed to restart $service_name. Check journalctl -xe."
+                return 1
+            fi
+            ;;
+        *)
+            log_event "WARN" "Attempted to restart unauthorized/unknown service: $service_name"
+            return 1
+            ;;
+    esac
+}
