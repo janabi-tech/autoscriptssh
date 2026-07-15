@@ -61,7 +61,7 @@ safe_deploy_systemd() {
     local service_name="$1"
     local service_file="/etc/systemd/system/${service_name}.service"
     local temp_file="/tmp/${service_name}.service.tmp"
-    
+
     # The calling script will write the unit file to the temp location first
     if [ ! -f "$temp_file" ]; then
         log_event "ERROR" "Cannot deploy $service_name. Temp file missing."
@@ -72,9 +72,18 @@ safe_deploy_systemd() {
     if [ -f "$service_file" ] && cmp -s "$temp_file" "$service_file"; then
         log_event "INFO" "Service $service_name is unchanged. Skipping deployment."
         rm -f "$temp_file"
+        # FIX: even when the unit file is unchanged, if the service is
+        #      currently inactive we must start it — otherwise xray_install
+        #      returns success while leaving xray stopped on a fresh box
+        #      where the unit was pre-staged but never started.
+        if ! systemctl is-active --quiet "$service_name" 2>/dev/null; then
+            systemctl enable "$service_name" >/dev/null 2>&1
+            systemctl start "$service_name" >/dev/null 2>&1 || true
+        fi
     else
         log_event "INFO" "Deploying/Updating service: $service_name"
         mv "$temp_file" "$service_file"
+        chmod 644 "$service_file"
         systemctl daemon-reload
         systemctl enable "$service_name" >/dev/null 2>&1
         systemctl restart "$service_name"

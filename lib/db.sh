@@ -1,7 +1,11 @@
 # File: /opt/janabitech/lib/db.sh
 # Purpose: Database interaction layer.
 
-source /opt/janabitech/core/janabitech.conf
+# FIX: guard the config source so db.sh can be sourced safely on a
+#      half-installed system (mirrors what system.sh already does).
+if [ -f /opt/janabitech/core/janabitech.conf ]; then
+    source /opt/janabitech/core/janabitech.conf
+fi
 source /opt/janabitech/lib/system.sh
 
 init_database() {

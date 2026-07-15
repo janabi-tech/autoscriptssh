@@ -3,9 +3,15 @@
 #          Reuses the SAME domain + Let's Encrypt SSL certificate that the SSH
 #          stack already provisions in /opt/janabitech/core/keys/.
 
-source /opt/janabitech/core/janabitech.conf
+# FIX: Guard the config source so xray.sh can be sourced on a half-installed
+#      box without aborting (system.sh already does this; xray.sh did not).
+[ -f /opt/janabitech/core/janabitech.conf ] && source /opt/janabitech/core/janabitech.conf
 source /opt/janabitech/lib/system.sh
 source /opt/janabitech/lib/db.sh
+# FIX: installer_utils.sh provides safe_deploy_systemd() and ensure_package()
+#      used by xray_install(). Source it here as well so that any caller of
+#      xray.sh (bin/janabitech, menus, etc.) has these helpers available.
+[ -f /opt/janabitech/lib/installer_utils.sh ] && source /opt/janabitech/lib/installer_utils.sh
 
 # ----------------------------------------------------------------------
 # Constants – DO NOT CHANGE without also updating the inbound generator.
@@ -80,6 +86,9 @@ xray_validate_username() {
         xray_log "ERROR" "Invalid username '$username'. Use 3-32 alphanumeric, hyphens or underscores."
         return 1
     fi
+    # FIX: explicit success (previously relied on the implicit exit status of
+    #      the `if` block, which is fragile across bash versions).
+    return 0
 }
 
 xray_validate_protocol() {
@@ -134,7 +143,18 @@ xray_apply_delta() {
         *) xray_log "ERROR" "Unknown unit '$unit' (use: minutes|hours|days)."; return 1 ;;
     esac
 
-    local new_epoch=$(( cur_epoch + delta_seconds ))
+    # FIX: If the account is already expired, renew from NOW instead of from
+    #      the old (past) expiry. Without this, renewing an expired user by
+    #      N days produced an expiry that was still in the past, so the next
+    #      purge-expired cron tick immediately re-expired the account.
+    local now_epoch
+    now_epoch=$(date +%s)
+    local base_epoch=$cur_epoch
+    if [ "$cur_epoch" -lt "$now_epoch" ]; then
+        base_epoch=$now_epoch
+    fi
+
+    local new_epoch=$(( base_epoch + delta_seconds ))
     date -d "@$new_epoch" +"%Y-%m-%d %H:%M:%S"
 }
 
@@ -168,7 +188,14 @@ xray_install_binary() {
 
     mkdir -p /opt/janabitech/bin "$XRAY_GEO_DIR"
     local tmp="/tmp/xray-core-${XRAY_VERSION}.zip"
+    local extract_dir="/tmp/xray-extract"
     local url="https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-${arch}.zip"
+
+    # FIX: ensure wget is available (it is part of the base PACKAGES list,
+    #      but xray_install can be invoked standalone via the menu).
+    if ! command -v wget >/dev/null 2>&1; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y wget >/dev/null 2>&1 || true
+    fi
 
     xray_log "INFO" "Downloading Xray-core ${XRAY_VERSION} (${arch}) ..."
     if ! wget -qO "$tmp" "$url"; then
@@ -177,29 +204,45 @@ xray_install_binary() {
         return 1
     fi
 
-    if ! unzip -o -q "$tmp" -d /tmp/xray-extract; then
+    # FIX: clean any stale extraction dir from a previous failed run BEFORE
+    #      unzipping so we don't mix old arch files with the new ones.
+    rm -rf "$extract_dir"
+    if ! unzip -o -q "$tmp" -d "$extract_dir"; then
         xray_log "ERROR" "Unzip failed."
-        rm -f "$tmp"
+        rm -f "$tmp" ; rm -rf "$extract_dir"
         return 1
     fi
 
-    mv -f /tmp/xray-extract/xray "$XRAY_BIN"
+    if [ ! -f "$extract_dir/xray" ]; then
+        xray_log "ERROR" "Downloaded archive did not contain the xray binary (URL may be wrong: $url)."
+        rm -rf "$extract_dir" "$tmp"
+        return 1
+    fi
+
+    mv -f "$extract_dir/xray" "$XRAY_BIN"
     chmod +x "$XRAY_BIN"
 
-    # Geosite/Geoip data files (best-effort – not fatal if missing)
-    if [ -f /tmp/xray-extract/geoip.dat ]; then
-        mv -f /tmp/xray-extract/geoip.dat "${XRAY_GEO_DIR}/geoip.dat"
+    # Geosite/Geoip data files (best-effort – not fatal if missing).
+    # The bundled config.json references geoip:private which Xray-core
+    # resolves from geoip.dat; if missing, Xray falls back to built-in
+    # private CIDRs so it still boots.
+    if [ -f "$extract_dir/geoip.dat" ]; then
+        mv -f "$extract_dir/geoip.dat" "${XRAY_GEO_DIR}/geoip.dat"
     fi
-    if [ -f /tmp/xray-extract/geosite.dat ]; then
-        mv -f /tmp/xray-extract/geosite.dat "${XRAY_GEO_DIR}/geosite.dat"
+    if [ -f "$extract_dir/geosite.dat" ]; then
+        mv -f "$extract_dir/geosite.dat" "${XRAY_GEO_DIR}/geosite.dat"
     fi
 
-    rm -rf /tmp/xray-extract "$tmp"
+    rm -rf "$extract_dir" "$tmp"
     xray_log "INFO" "Xray binary installed: $("$XRAY_BIN" version 2>/dev/null | head -n1)"
 }
 
 xray_install_systemd() {
-    cat <<EOF > /tmp/${XRAY_SERVICE}.service.tmp
+    # FIX: write the temp unit file with mode 600 so a non-root user on the
+    #      box cannot swap it before safe_deploy_systemd moves it into place.
+    local tmp_unit="/tmp/${XRAY_SERVICE}.service.tmp"
+    umask 077
+    cat <<EOF > "$tmp_unit"
 [Unit]
 Description=Janabitech Xray-core (vmess/vless/trojan over ws-nontls/ws-tls/grpc)
 After=network.target stunnel4.service
@@ -219,6 +262,7 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 [Install]
 WantedBy=multi-user.target
 EOF
+    umask 022
     safe_deploy_systemd "$XRAY_SERVICE"
 }
 
@@ -227,15 +271,38 @@ xray_install() {
 
     mkdir -p "$XRAY_DIR" "$XRAY_GEO_DIR" "$(dirname "$XRAY_ACCESS_LOG")" "$(dirname "$XRAY_ERROR_LOG")"
 
+    # FIX: make sure unzip + openssl are present. 05-deploy-xray.sh calls
+    #      ensure_package("unzip") before us, but 'janabitech xray install'
+    #      from the menu skips that, so we self-provision here.
+    local dep
+    for dep in unzip openssl; do
+        if ! command -v "$dep" >/dev/null 2>&1; then
+            xray_log "INFO" "Installing missing dependency: $dep"
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$dep" >/dev/null 2>&1 || {
+                xray_log "ERROR" "Cannot install $dep — apt-get failed."
+                return 1
+            }
+        fi
+    done
+
+    # FIX: open firewall ports BEFORE deploying the systemd unit so the
+    #      service is reachable the moment it starts. Also guard the ufw
+    #      call so we don't error out on systems without ufw installed.
+    local p
+    if command -v ufw >/dev/null 2>&1; then
+        for p in "${XRAY_PORTS[@]}"; do
+            ufw allow "${p}/tcp" >/dev/null 2>&1 || true
+        done
+    fi
+
     xray_install_binary   || return 1
     xray_generate_config  || return 1
     xray_install_systemd  || return 1
 
-    # Open firewall ports (best-effort)
-    local p
-    for p in "${XRAY_PORTS[@]}"; do
-        ufw allow "${p}/tcp" >/dev/null 2>&1 || true
-    done
+    # FIX: safe_deploy_systemd skips restart when the unit file is unchanged,
+    #      which means a re-install never reloads the freshly regenerated
+    #      config.json. Always restart here so the new config takes effect.
+    systemctl restart "$XRAY_SERVICE" >/dev/null 2>&1 || true
 
     xray_log "INFO" "Xray-core deployed. Manage via 'janabitech xray ...' or menu option 09."
 }
@@ -247,6 +314,12 @@ xray_uninstall() {
     systemctl disable "$XRAY_SERVICE" >/dev/null 2>&1
     rm -f "/etc/systemd/system/${XRAY_SERVICE}.service"
     systemctl daemon-reload
+
+    # FIX: remove the 'xray purge-expired' cron entry that 05-deploy-xray.sh
+    #      added. Without this, cron kept invoking 'janabitech xray
+    #      purge-expired' every 5 minutes against the now-dropped table,
+    #      silently logging errors forever.
+    crontab -l 2>/dev/null | grep -v "xray purge-expired" | crontab - 2>/dev/null || true
 
     rm -rf "$XRAY_DIR" "$XRAY_BIN"
 
@@ -275,9 +348,19 @@ xray_generate_config() {
     # Fallback to self-signed if Let's Encrypt not yet issued (keeps xray bootable)
     if [ ! -s "$cert_file" ] || [ ! -s "$key_file" ]; then
         xray_log "WARN" "TLS cert/key not found – generating self-signed fallback so Xray can boot."
+        mkdir -p "$(dirname "$cert_file")"
         openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
             -keyout "$key_file" -out "$cert_file" \
             -subj "/CN=${PRIMARY_DOMAIN:-localhost}" >/dev/null 2>&1
+        # FIX: actually verify the openssl call produced non-empty cert/key
+        #      files. Previously, if openssl was missing or failed silently,
+        #      the config.json referenced empty files and Xray crashed on
+        #      boot with a confusing TLS error.
+        if [ ! -s "$cert_file" ] || [ ! -s "$key_file" ]; then
+            xray_log "ERROR" "Self-signed cert generation failed (openssl error). Cannot continue."
+            return 1
+        fi
+        chmod 600 "$key_file" "$cert_file"
     fi
 
     # Build client arrays per protocol
@@ -572,9 +655,25 @@ xray_create_user() {
         return 1
     fi
 
+    # FIX: reject non-positive durations when creating a brand-new account.
+    #      The regex in xray_compute_expiry allows negatives (because the
+    #      renew path needs them for deductions), but a freshly created
+    #      account with a negative duration starts out already expired,
+    #      which is never what the operator wanted.
+    if ! [[ "$value" =~ ^-?[0-9]+$ ]]; then
+        xray_log "ERROR" "Duration must be an integer (got '$value')."
+        return 1
+    fi
+    if [ "$value" -lt 1 ]; then
+        xray_log "ERROR" "Duration must be >= 1 for new accounts (got '$value')."
+        return 1
+    fi
+
     local exists
     exists=$(db_query "SELECT COUNT(*) FROM xray_users WHERE username='${username}';")
-    if [ "$exists" -gt 0 ]; then
+    # FIX: guard against empty db_query output (e.g. transient sqlite error)
+    #      so the test doesn't throw 'integer expression expected'.
+    if [ "${exists:-0}" -gt 0 ]; then
         xray_log "WARN" "Xray user '$username' already exists."
         return 2
     fi
@@ -589,7 +688,13 @@ xray_create_user() {
     db_query "INSERT INTO xray_users (username, protocol, uuid, expiry_date, status) \
               VALUES ('${username}', '${protocol}', '${secret}', '${expiry}', 'ACTIVE');"
 
-    xray_generate_config || return 1
+    # FIX: if config generation fails after the INSERT, roll back the row so
+    #      we don't leave an orphan user in the DB that's not in config.json.
+    if ! xray_generate_config; then
+        db_query "DELETE FROM xray_users WHERE username='${username}';"
+        xray_log "ERROR" "Failed to generate xray config. User '$username' rolled back."
+        return 1
+    fi
     systemctl restart "$XRAY_SERVICE" >/dev/null 2>&1
 
     xray_log "INFO" "Provisioned ${protocol} user '${username}' (expires ${expiry})."
@@ -608,10 +713,16 @@ xray_create_trial() {
         xray_log "ERROR" "Trial duration must be a positive number of minutes."
         return 1
     fi
+    # FIX: reject 0-minute trials (regex above allows them) — they would
+    #      create an account that's expired the instant it's created.
+    if [ "$minutes" -lt 1 ]; then
+        xray_log "ERROR" "Trial duration must be at least 1 minute."
+        return 1
+    fi
 
     local exists
     exists=$(db_query "SELECT COUNT(*) FROM xray_users WHERE username='${username}';")
-    if [ "$exists" -gt 0 ]; then
+    if [ "${exists:-0}" -gt 0 ]; then
         xray_log "WARN" "Xray user '$username' already exists."
         return 2
     fi
@@ -625,7 +736,12 @@ xray_create_trial() {
     db_query "INSERT INTO xray_users (username, protocol, uuid, expiry_date, status) \
               VALUES ('${username}', '${protocol}', '${secret}', '${expiry}', 'ACTIVE');"
 
-    xray_generate_config || return 1
+    # FIX: same rollback safety net as xray_create_user.
+    if ! xray_generate_config; then
+        db_query "DELETE FROM xray_users WHERE username='${username}';"
+        xray_log "ERROR" "Failed to generate xray config. Trial user '$username' rolled back."
+        return 1
+    fi
     systemctl restart "$XRAY_SERVICE" >/dev/null 2>&1
 
     xray_log "INFO" "Trial ${protocol} user '${username}' provisioned (${minutes} min, expires ${expiry})."
@@ -641,6 +757,10 @@ xray_renew_user() {
         xray_log "ERROR" "Usage: xray renew <user> <value> <unit>"
         return 1
     fi
+    if ! [[ "$value" =~ ^-?[0-9]+$ ]]; then
+        xray_log "ERROR" "Duration must be an integer (got '$value')."
+        return 1
+    fi
 
     local current
     current=$(db_query "SELECT expiry_date FROM xray_users WHERE username='${username}';")
@@ -654,7 +774,13 @@ xray_renew_user() {
 
     db_query "UPDATE xray_users SET expiry_date='${new_exp}', status='ACTIVE' WHERE username='${username}';"
 
-    xray_generate_config || return 1
+    # FIX: same rollback pattern — if config regen fails, undo the expiry bump
+    #      so the on-disk config matches the DB row.
+    if ! xray_generate_config; then
+        db_query "UPDATE xray_users SET expiry_date='${current}' WHERE username='${username}';"
+        xray_log "ERROR" "Failed to regenerate config; renewal of '$username' rolled back."
+        return 1
+    fi
     systemctl restart "$XRAY_SERVICE" >/dev/null 2>&1
 
     xray_log "INFO" "Renewed '$username'. New expiry: ${new_exp}."
@@ -668,8 +794,21 @@ xray_delete_user() {
         return 1
     fi
 
+    # FIX: confirm the row exists before we touch systemd; otherwise 'del'
+    #      on a non-existent user silently restarts xray for nothing and
+    #      logs a misleading 'Deleted' message.
+    local exists
+    exists=$(db_query "SELECT COUNT(*) FROM xray_users WHERE username='${username}';")
+    if [ "${exists:-0}" -eq 0 ]; then
+        xray_log "ERROR" "Xray user '$username' not found."
+        return 2
+    fi
+
     db_query "DELETE FROM xray_users WHERE username='${username}';"
-    xray_generate_config || return 1
+    if ! xray_generate_config; then
+        xray_log "ERROR" "Failed to regenerate config after deleting '$username'."
+        return 1
+    fi
     systemctl restart "$XRAY_SERVICE" >/dev/null 2>&1
 
     xray_log "INFO" "Deleted xray user '$username'."
@@ -677,6 +816,16 @@ xray_delete_user() {
 }
 
 xray_purge_expired() {
+    # FIX: bail out silently if the xray_users table doesn't exist (e.g.
+    #      xray was uninstalled but the cron line wasn't). Previously this
+    #      fired sqlite errors every 5 minutes from the cron job.
+    local table_exists
+    table_exists=$(sqlite3 "$DB_PATH" \
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='xray_users';" 2>/dev/null)
+    if [ -z "$table_exists" ]; then
+        return 0
+    fi
+
     local now_sql
     now_sql=$(date +"%Y-%m-%d %H:%M:%S")
 
