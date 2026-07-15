@@ -2,7 +2,7 @@
 # File: install.sh
 # Purpose: Master Orchestrator for Janabitech Enterprise Platform.
 
-REPO_URL="https://raw.githubusercontent.com/virtarix-tech/autoscriptssh/main"
+REPO_URL="https://raw.githubusercontent.com/janabi-tech/autoscriptssh/main"
 
 # --- UI Colors ---
 GREEN='\033[0;32m'
