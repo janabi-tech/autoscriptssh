@@ -14,9 +14,9 @@ import subprocess
 import datetime
 import pwd
 import json
-import urllib.request as urllib
-import urllib.parse as urllib
-import urllib.error as urllib
+import urllib.request
+import urllib.parse
+import urllib.error
 from collections import defaultdict
 DB_PATH = '/opt/imagitech/core/database.db'
 ONLINE_FILE = '/opt/imagitech/core/online_users.txt'
