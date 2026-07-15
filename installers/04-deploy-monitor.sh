@@ -1,6 +1,8 @@
-# File: /root/janabitech-install/04-deploy-monitor.sh
-
 #!/bin/bash
+# File: /root/janabitech-install/04-deploy-monitor.sh
+# FIX: shebang moved to line 1 (was on line 3) so install.sh's direct
+#      invocation runs bash, not /bin/sh=dash.
+
 source /opt/janabitech/lib/installer_utils.sh
 
 log_event "INFO" "Deploying Multi-Login Enforcement Daemon..."

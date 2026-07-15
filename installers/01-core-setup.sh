@@ -1,7 +1,10 @@
+#!/bin/bash
 # File: /root/janabitech-install/01-core-setup.sh
 # Purpose: Bootstraps the environment idempotently.
+# FIX: Shebang MUST be on line 1 so the kernel invokes bash (not /bin/sh=dash)
+#      when install.sh executes this file directly. Without this, bash arrays
+#      like PACKAGES=(...) break under dash and the whole install aborts.
 
-#!/bin/bash
 source /opt/janabitech/lib/installer_utils.sh
 
 log_event "INFO" "Starting Phase 1: Core Infrastructure Setup"

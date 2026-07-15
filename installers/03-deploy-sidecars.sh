@@ -1,7 +1,9 @@
+#!/bin/bash
 # File: /root/janabitech-install/03-deploy-sidecars.sh
 # Purpose: Idempotent deployment of Dante, UDP Custom, and DNSTT.
+# FIX: shebang moved to line 1 (was on line 4) so install.sh's direct
+#      invocation runs bash, not /bin/sh=dash which doesn't support arrays.
 
-#!/bin/bash
 source /opt/janabitech/core/janabitech.conf
 source /opt/janabitech/lib/installer_utils.sh
 
