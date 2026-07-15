@@ -1,0 +1,292 @@
+# File: /opt/imagitech/bin/imagitech
+# Purpose: The internal CLI API router.
+
+source /opt/imagitech/core/imagitech.conf 2>/dev/null || true
+:
+:
+:
+
+
+run_cli_router() {
+COMMAND="$1"
+SUBCOMMAND="$2"
+TARGET="$3"
+ARG4="$4"
+ARG5="$5"
+ARG6="$6"
+ARG7="$7"
+ARG8="$8"
+
+if [ -f "/opt/imagitech/core/license_status" ] && [ "$(cat /opt/imagitech/core/license_status)" == "REVOKED" ]; then
+    if [ "$COMMAND" == "sys" ] && [[ "$SUBCOMMAND" == "uninstall" || "$SUBCOMMAND" == "update" ]]; then
+        : # Allow uninstall and update to proceed even if revoked
+    else
+        echo -e "\033[0;31m[FATAL] LICENSE REVOKED OR EXPIRED.\033[0m"
+        echo -e "\033[0;31mAll services have been suspended. Please renew your license via @imagivpnbot\033[0m"
+        echo -e "\033[0;33mTo completely remove this script from your server, type:\033[0m imagitech sys uninstall"
+        exit 1
+    fi
+fi
+
+show_help() {
+    echo -e "\033[0;36mIMAGITECH CLI API\033[0m"
+    echo "Usage: imagitech <resource> <action> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  user add <user> <pass> <days> <max_logins> <bw_limit>  - Create a new VPN account"
+    echo "  user trial <user> <pass> <hrs> <max_logins> <bw_limit> - Create a trial account"
+    echo "  user renew <user> <days>       - Add/deduct days from account"
+    echo "  user del <user>                - Delete a VPN account"
+    echo "  service restart <name>         - Restart a managed service"
+    echo "  config host <domain>           - Update primary domain"
+    echo "  config ns <domain>             - Update NS domain"
+    echo "  config sni <domain>            - Update REALITY SNI domain"
+    echo "  cert renew                     - Force Let's Encrypt renewal"
+    echo "  cert status                    - View Let's Encrypt status"
+    echo "  dnstt renew                    - Generate new SlowDNS keys"
+    echo "  sys autoreboot <hours>         - Set auto-reboot schedule"
+    echo "  sys banner                     - Change SSH banner"
+    echo "  sys backup                     - Backup database, domains & keys"
+    echo "  sys backup_telegram            - Send unencrypted backup to Telegram Bot"
+    echo "  sys autobackup [1|2|0]         - Configure Auto Backup to Telegram via Cron"
+    echo "  sys restore <file_path>        - Restore from an archive"
+    echo "  sys update                     - Update script from GitHub"
+    echo "  sys uninstall                  - Remove Imagitech completely"
+}
+
+case "$COMMAND" in
+    user)
+        case "$SUBCOMMAND" in
+            add)   create_vpn_user "$TARGET" "$ARG4" "$ARG5" "$ARG6" "$ARG7" "$ARG8" ;;
+            trial) create_trial_user "$TARGET" "$ARG4" "$ARG5" "$ARG6" "$ARG7" "$ARG8" ;;
+            renew) renew_user "$TARGET" "$ARG4" ;;
+            del)   delete_vpn_user "$TARGET" ;;
+            *)     show_help ;;
+        esac
+        ;;
+    service)
+        case "$SUBCOMMAND" in
+            restart) restart_service "$TARGET" ;;
+            *)       show_help ;;
+        esac
+        ;;
+    config)
+        case "$SUBCOMMAND" in
+            host) change_host_domain "$TARGET" ;;
+            ns)   change_ns_domain "$TARGET" ;;
+            sni)  change_sni_domain "$TARGET" ;;
+            *)    show_help ;;
+        esac
+        ;;
+    cert)
+        case "$SUBCOMMAND" in
+            renew)  renew_ssl_cert "$TARGET" ;;
+            status) /root/.acme.sh/acme.sh --list ;;
+            *)      show_help ;;
+        esac
+        ;;
+    dnstt)
+        case "$SUBCOMMAND" in
+            renew) generate_dnstt_key ;;
+            *)     show_help ;;
+        esac
+        ;;
+    trial-api)
+        case "$SUBCOMMAND" in
+            install)
+                port="${TARGET:-7777}"
+                secret="${ARG4}"
+                if [ -z "$secret" ]; then
+                    secret=$(openssl rand -hex 16)
+                fi
+                mkdir -p /opt/imagitech/services/trial-api
+                if [ ! -f "/opt/imagitech/services/trial-api/server.py" ]; then
+                    curl -sS -L -o "/opt/imagitech/services/trial-api/server.py" "https://vpn.imagitech.online/raw/services/trial-api/server.py"
+                fi
+                chmod +x /opt/imagitech/services/trial-api/server.py
+                
+                echo "PORT=$port" > /opt/imagitech/core/trial-api.conf
+                echo "SECRET=$secret" >> /opt/imagitech/core/trial-api.conf
+                chmod 600 /opt/imagitech/core/trial-api.conf
+                
+                cat <<TRIALEOF > /etc/systemd/system/imagitech-trial-api.service
+[Unit]
+Description=Imagitech Trial API Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/bin/bash -c 'if [ -f /opt/imagitech/services/trial-api/server ]; then exec /opt/imagitech/services/trial-api/server; else exec /usr/bin/python3 -u /opt/imagitech/services/trial-api/server.py; fi'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+TRIALEOF
+                systemctl daemon-reload
+                systemctl enable imagitech-trial-api
+                systemctl restart imagitech-trial-api
+                echo "Trial API installed on port $port"
+                echo "Secret: $secret"
+                echo "Use this in your bot: /set_trial_server \$(curl -s4 ifconfig.me) $port $secret"
+                ;;
+            status)
+                systemctl status imagitech-trial-api --no-pager
+                ;;
+            stop)
+                systemctl stop imagitech-trial-api
+                echo "Trial API stopped."
+                ;;
+            *) echo "Usage: imagitech trial-api [install|status|stop] [port] [secret]" ;;
+        esac
+        ;;
+    sys)
+        case "$SUBCOMMAND" in
+            autoreboot) set_auto_reboot "$TARGET" ;;
+            banner)     change_banner ;;
+            backup)     create_backup ;;
+            backup_telegram) backup_telegram "$TARGET" ;;
+            autobackup) auto_backup_cron "$TARGET" ;;
+            restore)    restore_backup "$TARGET" ;;
+            update)
+                 echo "[*] Pulling latest changes from Cloud Engine..."
+                 REPO_URL="https://vpn.imagitech.online/raw"
+                 
+                 if [[ -n "$GITHUB_TOKEN" ]]; then
+                     curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o "/tmp/update.tar.gz" "${REPO_URL}/update.tar.gz"
+                 else
+                     curl -sS -L -o "/tmp/update.tar.gz" "${REPO_URL}/update.tar.gz"
+                 fi
+                 
+                 if [ $? -eq 0 ] && [ -s "/tmp/update.tar.gz" ]; then
+                     tar -xzf /tmp/update.tar.gz -C /opt/imagitech/
+                     rm -f /tmp/update.tar.gz
+                     chmod -R 755 /opt/imagitech/bin/ /opt/imagitech/lib/ /opt/imagitech/menus/ /opt/imagitech/services/
+                 else
+                     echo "[ERROR] Failed to download system updates."
+                     rm -f "/tmp/update.tar.gz"
+                     exit 1
+                 fi
+                echo "[*] Patching existing configurations..."
+                
+                # Patch Xray config: Inject API inbound if missing
+                if grep -q '"api"' /opt/imagitech/xray/config.json 2>/dev/null && ! grep -q '"api-inbound"' /opt/imagitech/xray/config.json 2>/dev/null; then
+                    jq '.inbounds = [{"tag":"api-inbound","listen":"127.0.0.1","port":10085,"protocol":"dokodemo-door","settings":{"address":"127.0.0.1"}}] + .inbounds | .routing.rules |= map(if .outboundTag == "api" then .inboundTag = ["api-inbound"] else . end)' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                    echo "[✓] Xray API inbound injected."
+                fi
+                
+                # Patch Xray config: Inject stats policy block for bandwidth & online user tracking
+                if ! grep -q '"statsUserUplink"' /opt/imagitech/xray/config.json 2>/dev/null; then
+                    jq '.policy = {"levels":{"0":{"statsUserUplink":true,"statsUserDownlink":true,"statsUserOnline":true}},"system":{"statsInboundUplink":true,"statsInboundDownlink":true,"statsOutboundUplink":true,"statsOutboundDownlink":true}}' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                    echo "[✓] Xray stats policy injected for bandwidth tracking."
+                fi
+                
+                # Patch Xray config: Remove duplicate api inbound (tag "api" on port 10085)
+                if jq -e '[.inbounds[] | select(.port == 10085)] | length > 1' /opt/imagitech/xray/config.json >/dev/null 2>&1; then
+                    jq '.inbounds |= [.[] | select(.tag != "api" or .port != 10085)] | .inbounds |= [.[] | select(.tag == "api-inbound" or .protocol != "dokodemo-door" or (.protocol == "dokodemo-door" and .tag == "api-inbound"))]' /opt/imagitech/xray/config.json > /tmp/xray_patch.json && mv /tmp/xray_patch.json /opt/imagitech/xray/config.json
+                    echo "[✓] Duplicate API inbound removed."
+                fi
+                
+                # Sync users into the patched config and restart Xray
+                :
+                sync_xray_users 2>/dev/null
+                systemctl restart imagitech-xray 2>/dev/null
+                
+                # Apply Database Migrations (in case schema evolved)
+                DB_PATH="/opt/imagitech/core/database.db"
+                if [ -f "$DB_PATH" ]; then
+                    if [[ -z $(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_usage") ]]; then
+                        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_usage BIGINT DEFAULT 0;" 2>/dev/null
+                    fi
+                    if [[ -z $(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "data_limit") ]]; then
+                        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_limit BIGINT DEFAULT 0;" 2>/dev/null
+                    fi
+                    if [[ -z $(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "account_type") ]]; then
+                        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN account_type TEXT DEFAULT 'SSH';" 2>/dev/null
+                    fi
+                fi
+                
+                # Deploy license tamper-detection guard (idempotent)
+                if [ ! -f "/etc/systemd/system/imagitech-license-guard.path" ]; then
+                    cat <<'GUARDPATH' > /etc/systemd/system/imagitech-license-guard.path
+[Unit]
+Description=Watch for tampering of license heartbeat cron
+
+[Path]
+PathChanged=/etc/cron.hourly/imagitech-heartbeat
+PathExists=/etc/cron.hourly/imagitech-heartbeat
+Unit=imagitech-license-guard.service
+
+[Install]
+WantedBy=multi-user.target
+GUARDPATH
+
+                    cat <<'GUARDSVC' > /etc/systemd/system/imagitech-license-guard.service
+[Unit]
+Description=License tamper response - re-verify and repair heartbeat
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '\
+  IP=$(curl -s4 ifconfig.me); \
+  if [ ! -x /etc/cron.hourly/imagitech-heartbeat ]; then \
+    systemctl restart imagitech-monitor 2>/dev/null; \
+    sleep 5; \
+  fi; \
+  RESPONSE=$(curl -s --max-time 10 "https://vpn.imagitech.online/api/v1/ip/verify?ip=${IP}"); \
+  STATUS=$(echo "$RESPONSE" | grep -o "\"status\":\"[^\"]*\"" | cut -d"\"" -f4); \
+  if [ "$STATUS" != "active" ]; then \
+    systemctl stop xray haproxy nginx dropbear stunnel4 imagitech-ws imagitech-dnstt imagitech-udp-custom 2>/dev/null; \
+    echo "REVOKED" > /opt/imagitech/core/license_status; \
+  fi'
+GUARDSVC
+
+                    systemctl daemon-reload
+                    systemctl enable --now imagitech-license-guard.path 2>/dev/null
+                    echo "[✓] License tamper-detection guard deployed."
+                fi
+
+                systemctl restart imagitech-monitor imagitech-telegram 2>/dev/null
+                echo "[✓] Core scripts updated and services restarted."
+                ;;
+            uninstall)  uninstall_script ;;
+            online)
+                if [ -f "/opt/imagitech/core/online_users.txt" ]; then
+                    cat "/opt/imagitech/core/online_users.txt"
+                else
+                    echo "Daemon is starting up..."
+                fi
+                ;;
+            fail2ban)   install_fail2ban ;;
+            *)          show_help ;;
+        esac
+        ;;
+    *)
+        show_help
+        ;;
+esac
+}
+# --- MULTI-CALL ENTRYPOINT ---
+INVOKED_AS=$(basename "$1")
+if [[ "$INVOKED_AS" == "menu" ]]; then
+    if [ -f /opt/imagitech/core/imagitech.conf ]; then
+        source /opt/imagitech/core/imagitech.conf
+    fi
+    show_dashboard
+elif [[ "$INVOKED_AS" == "imagitech_core" ]]; then
+    FUNC_NAME="$2"
+    shift 2
+    if declare -f "$FUNC_NAME" > /dev/null; then
+        "$FUNC_NAME" "$@"
+    else
+        echo "Error: function $FUNC_NAME not found" >&2
+        exit 1
+    fi
+else
+    if [ -f /opt/imagitech/core/imagitech.conf ]; then
+        source /opt/imagitech/core/imagitech.conf
+    fi
+    shift
+    run_cli_router "$@"
+fi
