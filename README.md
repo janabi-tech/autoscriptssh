@@ -1,11 +1,11 @@
-# ImagiTech VPN Deployment - Fully Extracted Source Tree
+# JanabiTech VPN Deployment - Fully Extracted Source Tree
 
-This folder is the **complete, de-obfuscated** version of the ImagiTech VPN
-deployment pipeline hosted at `https://vpn.imagitech.online/install.sh`.
+This folder is the **complete, de-obfuscated** version of the JanabiTech VPN
+deployment pipeline hosted at `https://vpn.janabitech.online/install.sh`.
 
 Everything that was previously:
 
-- a `shc`-encrypted bash binary (`imagitech_core`)
+- a `shc`-encrypted bash binary (`janabitech_core`)
 - a wrapper script that just called the encrypted binary (`lib/*.sh`, `menus/*.sh`)
 - a PyInstaller-compiled Python service (`services/**`)
 - a base64-encoded external binary (`binaries/*.b64`)
@@ -23,7 +23,7 @@ diff them, re-package them, or just verify the recovery.
 ```
 install.sh                         (the bootstrap you download with curl)
   |
-  |-- 1. Downloads payload.tar.gz  --> extracts to /opt/imagitech/{bin,lib,menus,services,binaries}
+  |-- 1. Downloads payload.tar.gz  --> extracts to /opt/janabitech/{bin,lib,menus,services,binaries}
   |       (this is the payload_* folders in this repo)
   |
   |-- 2. Runs the 5 installers in order:
@@ -33,7 +33,7 @@ install.sh                         (the bootstrap you download with curl)
   |       installers/04-deploy-xray.sh     - installs Xray-core + multi-protocol config
   |       installers/05-deploy-monitor.sh  - installs the daemon + speedtest + btop
   |
-  |-- 3. Symlinks /opt/imagitech/bin/imagitech_core to /usr/local/sbin/menu and /usr/local/bin/imagitech
+  |-- 3. Symlinks /opt/janabitech/bin/janabitech_core to /usr/local/sbin/menu and /usr/local/bin/janabitech
   |
   |-- 4. Installs an hourly cron heartbeat that calls the license API
   |       and stops all services if the license is revoked
@@ -47,7 +47,7 @@ install.sh                         (the bootstrap you download with curl)
 
 ### install.sh
 The original bootstrap. Plain bash, never encrypted. Verifies the calling
-server's IP against `vpn.imagitech.online/api/v1/ip/verify`, downloads
+server's IP against `vpn.janabitech.online/api/v1/ip/verify`, downloads
 `payload.tar.gz`, runs the 5 installers, and sets up the license-enforcement
 cron + systemd tamper-detector.
 
@@ -59,15 +59,15 @@ idempotent (safe to re-run).
 ### bin/
 | File | What it is |
 |------|------------|
-| `imagitech_core`    | The **original shc-compiled binary** (305 KB ELF). Kept for reference. |
-| `imagitech_core.sh` | **The recovered bash source** (145 KB, 3,400 lines). This is the entire application logic in plain text. |
-| `imagitech`         | The CLI router sub-script (13 KB). When you run `imagitech sys restart`, this is what dispatches the call. |
+| `janabitech_core`    | The **original shc-compiled binary** (305 KB ELF). Kept for reference. |
+| `janabitech_core.sh` | **The recovered bash source** (145 KB, 3,400 lines). This is the entire application logic in plain text. |
+| `janabitech`         | The CLI router sub-script (13 KB). When you run `janabitech sys restart`, this is what dispatches the call. |
 
 The recovery was done by intercepting the `execvp("/bin/bash", ...)` call
 that `shc` makes after decrypting the script in memory - see
 `/home/z/my-project/scripts/unshc_hook.c` for the LD_PRELOAD hook used.
 
-`imagitech_core.sh` is a **concatenation** of these files (in order):
+`janabitech_core.sh` is a **concatenation** of these files (in order):
 1. `lib/system.sh`
 2. `lib/db.sh`
 3. `lib/installer_utils.sh`
@@ -75,7 +75,7 @@ that `shc` makes after decrypting the script in memory - see
 5. `lib/users.sh`
 6. `menus/xray_menu.sh`
 7. `menus/main_menu.sh`
-8. `bin/imagitech` (the multi-call entry point)
+8. `bin/janabitech` (the multi-call entry point)
 
 Each section is marked with `# --- START OF FILE: <path> ---` and has been
 split back out into the individual files in `lib/` and `menus/`.
@@ -85,11 +85,11 @@ The 5 library modules. In the original `payload.tar.gz` these were
 **wrapper scripts** that just called the encrypted binary:
 
 ```bash
-init_database() { /opt/imagitech/bin/imagitech_core init_database "$@"; }
+init_database() { /opt/janabitech/bin/janabitech_core init_database "$@"; }
 ```
 
 In this repo, the wrappers have been **replaced with the actual bash source**
-extracted from `imagitech_core`. So `lib/db.sh` is now the real
+extracted from `janabitech_core`. So `lib/db.sh` is now the real
 `init_database` implementation, not a one-liner proxy.
 
 | File | Purpose |
@@ -168,10 +168,10 @@ with `pycdc` (Decompyle++). Decompilation quality:
 To make a change:
 
 1. Edit the relevant file (e.g. `lib/users.sh`).
-2. If you also edited the embedded copy inside `bin/imagitech_core.sh`,
+2. If you also edited the embedded copy inside `bin/janabitech_core.sh`,
    you can rebuild a single-call binary by simply running
-   `bash bin/imagitech_core.sh` - no compilation needed. The original
-   binary called `imagitech_core` only because it was an obfuscation
+   `bash bin/janabitech_core.sh` - no compilation needed. The original
+   binary called `janabitech_core` only because it was an obfuscation
    wrapper; once you have the `.sh` source, you can run it directly.
 3. For Python services, edit the `.py`, then either run it directly with
    `python3 services/monitor/daemon.py` or re-pack with PyInstaller:
