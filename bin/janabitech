@@ -2,10 +2,16 @@
 # File: /opt/janabitech/bin/janabitech
 # Purpose: The internal CLI API router.
 
-source /opt/janabitech/core/janabitech.conf
+source /opt/janabitech/core/janabitech.conf 2>/dev/null
 source /opt/janabitech/lib/users.sh
 source /opt/janabitech/lib/system.sh
 source /opt/janabitech/lib/services.sh
+# FIX: installer_utils.sh MUST be sourced here too. It defines
+#      safe_deploy_systemd() and ensure_package(), which xray_install()
+#      depends on. Without this, 'janabitech xray install' fails with
+#      "safe_deploy_systemd: command not found" because the CLI router
+#      never loaded installer_utils.sh (only 05-deploy-xray.sh did).
+source /opt/janabitech/lib/installer_utils.sh
 source /opt/janabitech/lib/xray.sh
 
 COMMAND="$1"
