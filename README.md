@@ -1,7 +1,7 @@
 <p align="center">  
 <img src="https://user-images.githubusercontent.com/76937659/153705486-44e6c1b2-74fa-4d44-be1c-36c8fdb83331.gif"/>  
 <P>
-<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=blue&center=true&vCenter=true&lines=🚀JANABI-TECH🚀"
+<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=blue&center=true&vCenter=true&lines=🚀JANABI-TECH[AutoScriptVPN]🚀"
 </p>
 <p align="center">  
 <img src="https://user-images.githubusercontent.com/76937659/153705486-44e6c1b2-74fa-4d44-be1c-36c8fdb83331.gif"/>  
@@ -47,7 +47,7 @@ bash <(curl -sS -L https://raw.githubusercontent.com/janabi-tech/autoscriptssh/m
 
 <h2 align="center">
 Auto Script Install XRAY/SSH Websocket Service
-Mod By Virtarix-Tech Dev
+Mod By Janabi-Tech Dev
 <p align="center">
 <img src="https://img.shields.io/badge/Release-v2.7.8-lime.svg">
 <img src="https://img.shields.io/badge/Systemd-Required-cyan.svg">
