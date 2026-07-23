@@ -2,45 +2,34 @@
 # Purpose: Idempotent deployment of Dante, UDP Custom, and DNSTT.
 
 #!/bin/bash
-source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
+source /opt/janabitech/core/janabitech.conf
 source /opt/janabitech/lib/installer_utils.sh
 
-log_event "INFO" "Deploying Phase 3: Extended Protocols"
+log_event "INFO" "Deploying Phase 3: Sidecar Protocols"
 
 # Define your raw binary hosting URL
-BINARY_URL="https://vpn.janabitech.online/raw/binaries"
+BINARY_URL="https://raw.githubusercontent.com/janabi-tech/autoscriptssh/main/binaries"
 IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
 
 safe_download_binary() {
     local bin_name="$1"
     local dest_path="/opt/janabitech/bin/$bin_name"
-    local b64_path="/opt/janabitech/bin/${bin_name}.b64"
     
     if [ ! -x "$dest_path" ]; then
-        if [[ -n "$GITHUB_TOKEN" ]]; then
-            run_with_spinner "Fetching required dependencies..." curl -H "Authorization: token ${GITHUB_TOKEN}" -sS -L -o "$b64_path" "${BINARY_URL}/${bin_name}.b64"
-        else
-            run_with_spinner "Fetching required dependencies..." curl -sS -L -o "$b64_path" "${BINARY_URL}/${bin_name}.b64"
-        fi
-        
-        # Decode the binary safely to avoid Cloudflare Worker text encoding corruption
-        if [ -f "$b64_path" ]; then
-            base64 -d "$b64_path" > "$dest_path"
-            rm -f "$b64_path"
-            chmod +x "$dest_path"
-        fi
+        run_with_spinner "Downloading pre-compiled binary ($bin_name)..." wget -qO "$dest_path" "${BINARY_URL}/${bin_name}"
+        chmod +x "$dest_path"
         
         # Verify the binary works (prevents corrupted downloads from breaking everything)
         if ! "$dest_path" --help >/dev/null 2>&1 && ! "$dest_path" -h >/dev/null 2>&1; then
-            log_event "WARN" "Dependency validation failed."
+            log_event "WARN" "Binary $bin_name downloaded but might not be executable."
         fi
     else
-        log_event "INFO" "Dependencies verified."
+        log_event "INFO" "Binary $bin_name already exists and is executable."
     fi
 }
 
 # --- 1. Dante SOCKS5 Proxy ---
-log_event "INFO" "Configuring SOCKS Services..."
+log_event "INFO" "Configuring Dante SOCKS5 Server..."
 
 cat <<EOF > /etc/danted.conf
 logoutput: syslog
@@ -58,7 +47,7 @@ systemctl enable danted >/dev/null 2>&1
 systemctl restart danted
 
 # --- 2. UDP Custom (Pre-compiled) ---
-log_event "INFO" "Deploying UDP Services..."
+log_event "INFO" "Deploying UDP Custom..."
 
 safe_download_binary "udp-custom"
 
@@ -97,14 +86,14 @@ EOF
 safe_deploy_systemd "janabitech-udp-custom"
 
 # --- 3. DNSTT / SlowDNS (Pre-compiled) ---
-log_event "INFO" "Deploying DNS Tunneling Services..."
+log_event "INFO" "Deploying DNSTT SlowDNS Server..."
 
 safe_download_binary "dnstt-server"
 
 # Idempotent Port 53 Release
 if systemctl is-active --quiet systemd-resolved; then
     if grep -q "#DNSStubListener=yes" /etc/systemd/resolved.conf; then
-        log_event "INFO" "Optimizing Network Ports..."
+        log_event "INFO" "Freeing Port 53 from systemd-resolved..."
         sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
         systemctl restart systemd-resolved
         rm -f /etc/resolv.conf
@@ -115,15 +104,15 @@ fi
 
 # Idempotent DNSTT Key Generation
 if [ ! -f "/opt/janabitech/core/keys/dnstt.pub" ]; then
-    log_event "INFO" "Generating Cryptographic Keys..."
+    log_event "INFO" "Generating new DNSTT keys..."
     cd /opt/janabitech/core/keys
     /opt/janabitech/bin/dnstt-server -gen-key -privkey-file dnstt.key -pubkey-file dnstt.pub
 else
-    log_event "INFO" "Keys verified."
+    log_event "INFO" "DNSTT keys already exist. Skipping generation."
 fi
 
 # Idempotent iptables Routing (Check before Insert)
-log_event "INFO" "Applying Network Routing Rules..."
+log_event "INFO" "Applying DNSTT iptables routing rules..."
 
 if ! iptables -C INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null; then
     iptables -I INPUT -p udp --dport 5300 -j ACCEPT
@@ -139,7 +128,7 @@ netfilter-persistent save >/dev/null 2>&1
 
 cat <<EOF > /tmp/janabitech-dnstt.service.tmp
 [Unit]
-Description=janabitech DNSTT Server
+Description=Janabitech DNSTT Server
 After=network.target
 
 [Service]
@@ -154,5 +143,5 @@ EOF
 
 safe_deploy_systemd "janabitech-dnstt"
 
-log_event "INFO" "Extended Protocols Deployed Successfully."
+log_event "INFO" "Sidecar Protocols Deployed Successfully."
 

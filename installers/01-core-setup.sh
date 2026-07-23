@@ -15,21 +15,13 @@ safe_create_dir "/opt/janabitech/services/monitor"
 
 # 2. Idempotent Dependency Installation
 PACKAGES=(
-    "curl" "wget" "git" "cron" "iptables" "lsof" "tar" "unzip" "uuid-runtime"
-    "ca-certificates" "openssl" "sqlite3" "bzip2" "dropbear" "haproxy" "nginx"
-    "dante-server" "python3" "vnstat" "socat" "jq"
+    "curl" "wget" "git" "cron" "iptables" "lsof" "tar" "unzip" 
+    "uuid-runtime" "ca-certificates" "openssl" "sqlite3" "bzip2"
+    "dropbear" "stunnel4" "dante-server" "python3" "vnstat"
 )
 
 log_event "INFO" "Verifying core dependencies..."
 DEBIAN_FRONTEND=noninteractive apt-get update -y > /dev/null 2>&1
-
-# Fix system hostname resolution if missing from /etc/hosts to prevent sudo warnings
-CURRENT_HOSTNAME=$(hostname)
-if [ -n "$CURRENT_HOSTNAME" ]; then
-    if ! grep -q "127.0.0.1 $CURRENT_HOSTNAME" /etc/hosts; then
-        echo "127.0.0.1 $CURRENT_HOSTNAME" >> /etc/hosts
-    fi
-fi
 # Network Optimizations (TCP BBR)
 cat <<EOF > /etc/sysctl.d/99-janabitech-bbr.conf
 net.core.default_qdisc=fq
@@ -41,41 +33,22 @@ for pkg in "${PACKAGES[@]}"; do
     ensure_package "$pkg"
 done
 
-log_event "INFO" "Whitelisting VPN user shell..."
+log_event "INFO" "Whitelisting VPN user shell for Dropbear..."
 if ! grep -qxF '/bin/false' /etc/shells; then
     echo "/bin/false" >> /etc/shells
 fi
-# 3. Log Rotation Configuration
-log_event "INFO" "Setting up log rotation..."
-cat <<EOF > /etc/logrotate.d/janabitech
-/opt/janabitech/logs/*.log {
-    daily
-    missingok
-    rotate 7
-    compress
-    delaycompress
-    notifempty
-    create 0640 root root
-}
-EOF
 
-# 4. Safe Configuration Generation
+# 3. Safe Configuration Generation
 CONF_FILE="/opt/janabitech/core/janabitech.conf"
 if [ ! -f "$CONF_FILE" ]; then
     log_event "INFO" "Configuration file missing. Initiating interactive setup."
     
-    if [ -n "$JANABITECH_DOMAIN" ]; then
-        DOMAIN="$JANABITECH_DOMAIN"
-        NS_DOMAIN="$JANABITECH_NS_DOMAIN"
-        log_event "INFO" "Auto-configuring licensed domain: $DOMAIN"
-    else
-        read -p "Primary VPN Domain (e.g., vpn.janabitech.online): " DOMAIN < /dev/tty
-        read -p "Nameserver Domain (e.g., ns-vpn.janabitech.online): " NS_DOMAIN < /dev/tty
-    fi
+    read -p "Primary VPN Domain (e.g., vpn.savag.online): " DOMAIN
+    read -p "Nameserver Domain (e.g., ns-vpn.savag.online): " NS_DOMAIN
     
     cat <<EOF > "$CONF_FILE"
-# JANABITECH GLOBAL CONFIGURATION
-BASE_DIR="/opt/janabitech"
+# IMAGITECH GLOBAL CONFIGURATION
+BASE_DIR="/opt/imagitech"
 PRIMARY_DOMAIN="$DOMAIN"
 NS_DOMAIN="$NS_DOMAIN"
 MAX_LOGINS_DEFAULT=2
@@ -87,7 +60,7 @@ PORT_WS_HTTPS=443
 PORT_SOCKS=1080
 EOF
 
-    log_event "INFO" "Configuration saved."
+    log_event "INFO" "Configuration saved to $CONF_FILE."
 else
     log_event "INFO" "Existing configuration found. Sourcing values."
     source "$CONF_FILE"
@@ -100,12 +73,9 @@ init_database
 
 log_event "INFO" "Configuring automatic UI dashboard on root login..."
 if ! grep -qx "menu" /root/.bashrc; then
-    echo -e "\n# Auto-start janabitech Dashboard" >> /root/.bashrc
+    echo -e "\n# Auto-start Virtarixtech Dashboard" >> /root/.bashrc
     echo '[[ $- == *i* ]] && menu' >> /root/.bashrc
 fi
-
-# Suppress SSH MOTD banners so the menu starts purely at the top
-touch /root/.hushlogin
 
 # Setup Log Rotation
 cat <<EOF > /etc/logrotate.d/janabitech
