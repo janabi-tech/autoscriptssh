@@ -59,7 +59,7 @@ change_ns_domain() {
     # 2. Re-write the systemd service to use the new NS domain
     cat <<EOF > /etc/systemd/system/janabitech-dnstt.service
 [Unit]
-Description=Virtarixtech DNSTT Server
+Description=Janabitech DNSTT Server
 After=network.target
 
 [Service]
@@ -129,7 +129,7 @@ generate_dnstt_key() {
 set_auto_reboot() {
     local hours="$1"
     
-    # Safely remove any existing Virtarixtech reboot cron jobs
+    # Safely remove any existing Janabitech reboot cron jobs
     crontab -l 2>/dev/null | grep -v "/sbin/reboot" | crontab -
     
     if [ "$hours" -gt 0 ]; then
@@ -154,7 +154,7 @@ change_banner() {
 }
 
 uninstall_script() {
-    log_event "WARN" "Initiating complete uninstallation of Virtarixtech VPN Platform..."
+    log_event "WARN" "Initiating complete uninstallation of Janabitech VPN Platform..."
     
     # 1. Stop and Disable all managed services
     local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom stunnel4 dropbear danted)
@@ -170,9 +170,9 @@ uninstall_script() {
     # 3. Clean routing rules & accounting chains
     iptables -t nat -D PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 5300 2>/dev/null
     iptables -D INPUT -p udp --dport 5300 -j ACCEPT 2>/dev/null
-    iptables -D OUTPUT -j VIRTARIXTECH-ACCT 2>/dev/null
-    iptables -F VIRTARIXTECH-ACCT 2>/dev/null
-    iptables -X VIRTARIXTECH-ACCT 2>/dev/null
+    iptables -D OUTPUT -j JANABITECH-ACCT 2>/dev/null
+    iptables -F JANABITECH-ACCT 2>/dev/null
+    iptables -X JANABITECH-ACCT 2>/dev/null
     
     if command -v netfilter-persistent &> /dev/null; then
         netfilter-persistent save >/dev/null 2>&1
