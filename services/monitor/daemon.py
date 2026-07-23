@@ -29,7 +29,7 @@ class VirtarixtechMonitor:
 
     def setup_iptables(self):
         try:
-            subprocess.run("iptables -N JANABITECH-ACCT", shell=True, stderr=subprocess.DEVNULL)
+            subprocess.run("iptables -N JANBITECH-ACCT", shell=True, stderr=subprocess.DEVNULL)
             check_link = subprocess.run("iptables -C OUTPUT -j JANABITECH-ACCT", shell=True, stderr=subprocess.DEVNULL)
             if check_link.returncode != 0:
                 subprocess.run("iptables -I OUTPUT -j JANABITECH-ACCT", shell=True, stderr=subprocess.DEVNULL)
