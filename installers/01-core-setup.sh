@@ -43,12 +43,12 @@ CONF_FILE="/opt/janabitech/core/janabitech.conf"
 if [ ! -f "$CONF_FILE" ]; then
     log_event "INFO" "Configuration file missing. Initiating interactive setup."
     
-    read -p "Primary VPN Domain (e.g., vpn.savag.online): " DOMAIN
-    read -p "Nameserver Domain (e.g., ns-vpn.savag.online): " NS_DOMAIN
+    read -p "Primary VPN Domain (e.g., vpn.virtarix.net): " DOMAIN
+    read -p "Nameserver Domain (e.g., ns-vpn.virtarix.net): " NS_DOMAIN
     
     cat <<EOF > "$CONF_FILE"
 # IMAGITECH GLOBAL CONFIGURATION
-BASE_DIR="/opt/imagitech"
+BASE_DIR="/opt/janabitech"
 PRIMARY_DOMAIN="$DOMAIN"
 NS_DOMAIN="$NS_DOMAIN"
 MAX_LOGINS_DEFAULT=2
@@ -73,7 +73,7 @@ init_database
 
 log_event "INFO" "Configuring automatic UI dashboard on root login..."
 if ! grep -qx "menu" /root/.bashrc; then
-    echo -e "\n# Auto-start Virtarixtech Dashboard" >> /root/.bashrc
+    echo -e "\n# Auto-start Janabitech Dashboard" >> /root/.bashrc
     echo '[[ $- == *i* ]] && menu' >> /root/.bashrc
 fi
 
