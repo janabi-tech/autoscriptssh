@@ -1,8 +1,8 @@
 # File: /opt/janabitech/lib/db.sh
 # Purpose: Database interaction layer.
 
-source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
-:
+source /opt/janabitech/core/janabitech.conf
+source /opt/janabitech/lib/system.sh
 
 init_database() {
     log_event "INFO" "Initializing database schema at $DB_PATH"
@@ -15,13 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     uuid TEXT,
     protocols TEXT DEFAULT 'ssh,ws,socks',
-    account_type TEXT DEFAULT 'SSH',
     expiry_date TEXT NOT NULL,
     max_logins INTEGER DEFAULT 2,
     bandwidth_limit_mb INTEGER DEFAULT 0,
     bandwidth_used_mb INTEGER DEFAULT 0,
     status TEXT DEFAULT 'ACTIVE',
-    is_trial INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 EOF
@@ -37,17 +35,7 @@ EOF
     if [[ -z "$limit_exists" ]]; then
         sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN data_limit BIGINT DEFAULT 0;"
     fi
-
-    local trial_exists=$(sqlite3 "$DB_PATH" "PRAGMA table_info(users);" | grep "is_trial")
-    if [[ -z "$trial_exists" ]]; then
-        sqlite3 "$DB_PATH" "ALTER TABLE users ADD COLUMN is_trial INTEGER DEFAULT 0;"
-    fi
 }
-
-sqlite3() {
-    command sqlite3 -cmd ".timeout 5000" "$@"
-}
-export -f sqlite3
 
 db_query() {
     local query="$1"

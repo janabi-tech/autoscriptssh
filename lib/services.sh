@@ -1,15 +1,15 @@
 # File: /opt/janabitech/lib/services.sh
 # Purpose: Safe service orchestration and restarts.
 
-source /opt/janabitech/core/janabitech.conf 2>/dev/null || true
-:
+source /opt/janabitech/core/janabitech.conf
+source /opt/janabitech/lib/system.sh
 
 restart_service() {
     local service_name="$1"
     
     if [ "$service_name" == "all" ]; then
-        log_event "INFO" "Restarting ALL Janabitech services..."
-        local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom haproxy janabitech-xray dropbear danted ssh sshd)
+        log_event "INFO" "Restarting ALL Virtarixtech services..."
+        local services=(janabitech-ws janabitech-dnstt janabitech-monitor janabitech-udp-custom stunnel4 dropbear danted ssh sshd)
         for svc in "${services[@]}"; do
             systemctl restart "$svc" >/dev/null 2>&1
             log_event "INFO" "Restarted $svc"
@@ -19,7 +19,7 @@ restart_service() {
 
     # Strict whitelist to prevent arbitrary systemctl execution
     case "$service_name" in
-        dropbear|haproxy|janabitech-xray|janabitech-ws|janabitech-dnstt|janabitech-monitor|danted|janabitech-udp-custom|ssh|sshd)
+        dropbear|stunnel4|janabitech-ws|janabitech-dnstt|janabitech-monitor|danted|janabitech-udp-custom|ssh|sshd)
             log_event "INFO" "Restarting service: $service_name"
             systemctl restart "$service_name"
             
@@ -37,3 +37,4 @@ restart_service() {
             ;;
     esac
 }
+
