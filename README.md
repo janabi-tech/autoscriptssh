@@ -111,10 +111,3 @@ The script strictly adheres to modern Linux engineering principles. It avoids po
 This software is intended for educational purposes, privacy enhancement, and legal network administration. Abuse of this service for spam, DDoS, or illegal operations is strictly prohibited. The developer takes no responsibility for misuse.
 
 
-<div align="left">
-  <p>
-    <b>𝗦𝘂𝗯𝘀𝗰𝗿𝗶𝗯𝗲</b> → <a href="https://t.me/inet_adminbot">@inet_adminbot</a><br>
-    <b>𝗖𝗵𝗮𝗻𝗻𝗲𝗹</b> → <a href="https://t.me/wifi_BypassTechy">@wifi_BypassTechy</a><br>
-    <b>𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿</b> → <a href="t.me/nkihoy">Virtarix Dev</a>
-  </p>
-</div>
