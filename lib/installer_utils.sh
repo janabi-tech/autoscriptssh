@@ -96,7 +96,7 @@ ensure_tls_cert() {
     run_with_spinner "Generating TLS Certificate ($domain)..." openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout /opt/janabitech/core/keys/private.key \
         -out /opt/janabitech/core/keys/fullchain.cer \
-        -subj "/C=US/ST=NY/L=NY/O=Virtarixtech/CN=$domain"
+        -subj "/C=US/ST=NY/L=NY/O=Janabitech/CN=$domain"
         
     cat /opt/janabitech/core/keys/fullchain.cer /opt/janabitech/core/keys/private.key > "$cert_path"
     chmod 600 "$cert_path"
