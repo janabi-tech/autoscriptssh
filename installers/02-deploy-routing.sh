@@ -14,9 +14,12 @@ log_event "INFO" "Configuring Dropbear and OpenSSH..."
 
 # Write the Premium Default Banner
 cat <<'EOF' > /etc/issue.net
-</strong> <p style="text-align:center"><b> <br><font color="#00eaff""<br>┏━━━━━━━━━━━━━━━┓<br>💎𝙿𝚁𝙴𝙼𝙸𝚄𝙼 𝚂𝙴𝚁𝚅𝙴𝚁💎<br>┗━━━━━━━━━━━━━━━┛<br></font><br><font color="#00FF00"></strong> <p style="text-align:center"><b> <br><font color="#ff9ae"">क═══════क⊹⊱✫⊰⊹क═══════क</font><br><font color='#FFFF32'><b> ༆𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚃𝙾 𝙼𝚈 𝚂𝙴𝚁𝚅𝙴𝚁༆
-</b></font><br><font color="#FF2121">𝗦𝗘𝗥𝗩𝗘𝗥 𝗥𝗨𝗟𝗘𝗦</font><br> <font color="#00eaff">❖𝖭𝖮 𝖣𝖣𝖮𝖲 </font><br><font color="#FF000">❖𝖭𝖮 𝖬𝖨𝖭𝖨𝖭𝖦</font><br><font color="#79ff">❖𝖭𝖮 𝖳𝖮𝖱𝖱𝖤𝖭𝖳</font><br><font color="#ae44FF">❖𝖭𝖮 𝖧𝖠𝖢𝖪𝖨𝖭𝖦</font><br><font color="#ffff32">❖𝖭𝖮 𝖲𝖯𝖠𝖬𝖬𝖨𝖭𝖦 </font><br><font color="#ff2799">❖𝖭𝖮 𝖬𝖴𝖫𝖳𝖨𝖯𝖫𝖤 𝖫𝖮𝖦𝖨𝖭𝖲 </font><br> <font color="#ff9ae"">क═══════क⊹⊱✫⊰⊹क═══════क 
-</font><br><font color="#89ff">𝖢𝗋𝖾𝖺𝗍𝖾𝖽 𝖡𝗒 ✦𝚒𝙽𝙴𝚃 𝚃𝙴𝙲𝙷𝚈 𝚃𝙴𝙰𝙼✦
+</p><b><small><h6 style="text-align: center;"><span style="color: #fff9;"><span style="background-color:#;">💎 𝖶𝖤𝖫𝖢𝖮𝖬𝖤 𝖳𝖮 𝖬𝖸 𝖯𝖱𝖤𝖬𝖨𝖴𝖬 𝖵𝖯𝖲💎&nbsp</span></i> <small><font color=#"Tukul">
+<b></span><h4  style="text-align: center;"><font color="#ff2d2d"></><big><span style="color: #aa3426"></span><big><span style="color: #ff0000"><layout><big><big>S<small> </span><span style="color: #ff4444"> E </span><span style="color: #f63940"><small> R <big><small> </span><span style="color: #f9555f">V</span><span style="color: #4d727f"> <small>E</span><span style="color: #208e9f"> R </span><span style="color: #188aa9"> </span><span style="color: #1086b3">   ~ P </span><span style="color: #0881bc"> R </span><span style="color: #007dc6">E </span><span style="color: #33649e"><big>M </span><span style="color: #4169E1">I </span><span style="color: #DC143C"><big>U</span><span style="color: #cc1928"><big> M<small><small><small><small><small></span><big/i> </p><br></p><big><h2 style="text-align: center;"><font color='cyan'><b>────────•••──────── </b></font> <br><font color='#ff1234'>&ensp; 🩸NO DDOS🩸 </font>
+<br><font color='#fff111'>&ensp; 🩸NO MINING🩸 </font>
+<br><font color='#eafe'>&ensp; 🩸NO HACKING🩸 </font>
+<br><font color='#FFF00'>&ensp; 🩸NO MULTILOGIN🩸 </font>
+<br><font color='#ff9'>&ensp; 🩸NO ILLEGAL ACTIVITIES🩸 </font><br><font color='aqua'><b><strong><big>────────•••────────
 EOF
 
 # Enforce banner globally (Ubuntu 20/22/24 & Debian 11/12 fix)
@@ -70,7 +73,7 @@ chmod +x /opt/janabitech/services/routing/ws-proxy.py
 
 cat <<EOF > /tmp/janabitech-ws.service.tmp
 [Unit]
-Description=Virtarixtech Async WS Multiplexer
+Description=Janabitech Async WS Multiplexer
 After=network.target dropbear.service
 
 [Service]
