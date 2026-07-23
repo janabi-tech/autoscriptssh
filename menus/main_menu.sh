@@ -840,7 +840,7 @@ menu_settings() {
             4) 
                 clear
                 echo -e "${RED}${BOLD}======================================================${NC}"
-                echo -e "${RED}${BOLD}  DANGER: COMPLETELY UNINSTALL VIRTARIX PLATFORM     ${NC}"
+                echo -e "${RED}${BOLD}  DANGER: COMPLETELY UNINSTALL JANABI PLATFORM     ${NC}"
                 echo -e "${RED}${BOLD}======================================================${NC}"
                 echo -e "This action will:"
                 echo -e "  - Delete all VPN accounts & databases"
@@ -973,7 +973,7 @@ show_dashboard() {
         get_db_stats
 
         draw_top
-        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}             VIRTARIX DASHBOARD             ${NC} ${CYAN}│${NC}"
+        echo -e "${CYAN}│${NC} ${BOLD}${GREEN}             JANABI DASHBOARD             ${NC} ${CYAN}│${NC}"
         draw_mid
         echo -e "  ${ORANGE}✦ Server IP${NC}       : ${GREEN}${SERVER_IP}${NC} ${CYAN}(${SERVER_COUNTRY})${NC}"
         echo -e "  ${ORANGE}✦ ISP${NC}             : ${CYAN}${SERVER_ISP}${NC}"
@@ -1012,7 +1012,7 @@ show_dashboard() {
             6) menu_backup_restore ;;
             7) 
                clear
-               echo -e "${CYAN}=== UPDATE VIRTARIX PLATFORM ===${NC}"
+               echo -e "${CYAN}=== UPDATE JANABI PLATFORM ===${NC}"
                echo -e "${ORANGE}This will fetch the latest core files from GitHub.${NC}"
                echo -e "Your users, database, domains, and configurations will ${GREEN}NOT${NC} be affected.\n"
                
