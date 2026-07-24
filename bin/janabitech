@@ -35,7 +35,7 @@ show_help() {
     echo "  sys backup                     - Backup database, domains & keys"
     echo "  sys restore <file_path>        - Restore from an archive"
     echo "  sys update                     - Update script from GitHub"
-    echo "  sys uninstall                  - Remove Virtarixtech completely"
+    echo "  sys uninstall                  - Remove Janabitech completely"
 }
 
 case "$COMMAND" in
