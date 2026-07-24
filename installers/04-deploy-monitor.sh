@@ -1,5 +1,3 @@
-# File: /root/janabitech-install/04-deploy-monitor.sh
-
 #!/bin/bash
 source /opt/janabitech/lib/installer_utils.sh
 
@@ -10,11 +8,11 @@ chmod +x /opt/janabitech/services/monitor/daemon.py
 
 # 2. Stage CLI Utilities (Ookla Speedtest & Btop)
 if [ ! -x "/opt/janabitech/bin/speedtest" ]; then
-     run_with_spinner "Installing Ookla Speedtest..." wget -qO /tmp/speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
-     tar -xzf /tmp/speedtest.tgz -C /opt/janabitech/bin speedtest
-     chmod +x /opt/janabitech/bin/speedtest
-+    rm -f /tmp/speedtest.tgz
- fi
+    run_with_spinner "Installing Ookla Speedtest..." wget -qO /tmp/speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+    tar -xzf /tmp/speedtest.tgz -C /opt/janabitech/bin speedtest
+    chmod +x /opt/janabitech/bin/speedtest
+    rm -f /tmp/speedtest.tgz
+fi
 
 if [ ! -x "/opt/janabitech/bin/btop" ]; then
     run_with_spinner "Installing Btop Monitor..." wget -qO /tmp/btop.tbz https://github.com/aristocratos/btop/releases/download/v1.3.2/btop-x86_64-linux-musl.tbz
@@ -26,12 +24,10 @@ if [ ! -x "/opt/janabitech/bin/btop" ]; then
 fi
 
 # 3. Stage the Systemd file to temp
-cat <<EOF > /tmp/janabitech-monitor.service.tmp
-
+cat << EOF > /tmp/janabitech-monitor.service.tmp
 [Unit]
 Description=Janabitech Real-time Multi-Login Enforcer
--After=network.target sqlite.target dropbear.service
-+After=network.target dropbear.service
+After=network.target dropbear.service
 
 [Service]
 Type=simple
@@ -48,6 +44,5 @@ ReadWritePaths=/opt/janabitech/logs /opt/janabitech/core
 WantedBy=multi-user.target
 EOF
 
-# 3. Safely deploy using our utility function
+# 4. Safely deploy using our utility function
 safe_deploy_systemd "janabitech-monitor"
-
