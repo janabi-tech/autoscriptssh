@@ -28,7 +28,7 @@ fi
 cat <<EOF > /tmp/janabitech-monitor.service.tmp
 
 [Unit]
-Description=Virtarixtech Real-time Multi-Login Enforcer
+Description=Janabitech Real-time Multi-Login Enforcer
 After=network.target sqlite.target dropbear.service
 
 [Service]
