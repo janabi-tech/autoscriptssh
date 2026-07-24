@@ -15,7 +15,7 @@ DB_PATH = "/opt/janabitech/core/database.db"
 ONLINE_FILE = "/opt/janabitech/core/online_users.txt"
 CHECK_INTERVAL = 30  
 
-class VirtarixtechMonitor:
+class JanabitechMonitor:
     def __init__(self):
         self.db_path = DB_PATH
         self.user_policies = {} 
